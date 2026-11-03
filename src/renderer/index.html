@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Pulse</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="island" class="pill" data-mood="idle">
+    <!-- collapsed bar, always visible -->
+    <button id="bar" aria-label="Open Pulse">
+      <span class="orb"></span>
+      <span id="bar-text">Pulse</span>
+      <span id="bar-media" class="bar-media" hidden></span>
+      <svg id="bar-ring" class="ring" viewBox="0 0 36 36" hidden><circle cx="18" cy="18" r="15" class="ring-bg"/><circle cx="18" cy="18" r="15" class="ring-fg"/></svg>
+    </button>
+
+    <!-- expanded panel -->
+    <section id="panel">
+      <nav id="tabs">
+        <button data-tab="claude" class="active">Claude</button>
+        <button data-tab="activity">Activity</button>
+        <button data-tab="media">Media</button>
+        <button data-tab="tools">Tools</button>
+        <button data-tab="settings">Settings</button>
+        <span class="spacer"></span>
+        <button id="close" title="Collapse (Esc)">▴</button>
+      </nav>
+
+      <div id="attention"></div>
+
+      <div class="view" data-view="claude" id="view-claude"></div>
+      <div class="view" data-view="activity" id="view-activity" hidden></div>
+      <div class="view" data-view="media" id="view-media" hidden></div>
+      <div class="view" data-view="tools" id="view-tools" hidden>
+        <div class="tools-grid">
+          <div class="card" id="shelf">
+            <h3>Shelf <small>drop files here</small></h3>
+            <ul id="shelf-list" class="list"></ul>
+          </div>
+          <div class="card">
+            <h3>Focus</h3>
+            <div id="focus"></div>
+          </div>
+          <div class="card">
+            <h3>Note</h3>
+            <textarea id="note" placeholder="Quick note… (saved automatically)"></textarea>
+          </div>
+          <div class="card">
+            <h3>Clipboard <button class="link" id="clip-clear">clear</button></h3>
+            <ul id="clip-list" class="list"></ul>
+          </div>
+        </div>
+      </div>
+      <div class="view" data-view="settings" id="view-settings" hidden></div>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
