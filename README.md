@@ -2,12 +2,19 @@
 
 A Dynamic Island for Windows that follows **Claude Code** live, plus a few desk tools.
 
-- **Live sessions**: what Claude is reading, editing and running, a small diff of the current edit, last command output, elapsed time. The island glows blue (working), amber (needs you), green (done) or red (failed).
-- **Answer from the island**: Allow or Deny tool permissions, answer `AskUserQuestion` choices, approve or send back plans, and type a follow-up reply after Claude stops.
-- **Usage**: 5-hour and weekly limit meters (plus a ring in the collapsed bar) and per-session context fill, fed by a Pulse status line.
-- **Activity**: the last 50 finished turns.
-- **Media**: now playing from any app Windows knows about (Spotify, browsers…), with play/pause/skip/seek.
-- **Tools**: a file shelf (drop files onto the island, drag them out again), clipboard history, a quick note and a focus timer.
+A black notch hangs from the top of the screen with two glowing eyes. They blink, glance toward your cursor, scan while Claude works, hop when it needs you, turn into happy ^^ when it's done, droop when it fails, get sleepy when you're away, bob to music, and get dizzy if you poke them five times.
+
+Click it (or press `Ctrl+Alt+P`) to unfold:
+
+- **Home**: three cards for Claude (jobs today, live state, 5-hour usage ring), Music and Focus.
+- **Claude**: the live session (current step, a diff of the edit, command output), jobs done today, recent jobs and a model picker. Permission requests, `AskUserQuestion` choices and plans show up here with Allow/Deny, and you can reply after Claude stops.
+- **Music**: now playing from any app Windows knows (Spotify, browsers…), with seek, play/pause and skip.
+- **Ask**: ask your own Claude Code (`claude -p`) anything, or use quick actions on your last copied text (explain, check spelling, translate, summarize) or on a screenshot of your screen.
+- **Focus**: a timer with 5/15/25/50 minute lengths.
+- **Tray**: drop files on the island and drag them out later; swap files with your phone by QR code (local network only, stops after an hour, received files go to `Downloads\Pulse`).
+- **Clipboard**: recent copies, click to copy again.
+- **Note**: a quick note; start a line with `[ ]` for a tickable circle.
+- **Header**: Wi-Fi, date and time, 5-hour usage with a countdown to reset, and a menu with a system volume slider, Settings, Fold in and Quit.
 
 Everything runs locally. The hook server listens only on `127.0.0.1:47900` and requires a per-install token.
 

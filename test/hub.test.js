@@ -109,6 +109,23 @@ test('status line updates usage and context', () => withHub(async (hub, p) => {
   assert.equal(snap.sessions[0].context, 42);
 }));
 
+test('ignores Pulse\'s own Ask sessions and keeps system prompts out of history', async () => {
+  const added = [];
+  await withHub(async (hub, p) => {
+    await post(p, '/pulse/hook', { session_id: 'ask', cwd: 'C:\\Pulse\\ask', hook_event_name: 'UserPromptSubmit', prompt: 'hi' });
+    assert.equal(hub.snapshot().sessions.length, 0);
+    await post(p, '/pulse/hook', { session_id: 's7', cwd: 'C:\\x', hook_event_name: 'UserPromptSubmit', prompt: '<task-notification> done' });
+    await post(p, '/pulse/hook', { session_id: 's7', hook_event_name: 'Stop', last_assistant_message: 'ok' });
+    assert.equal(added.length, 0);
+  }, { ignoreCwd: 'C:\\Pulse\\ask', history: { add: e => added.push(e) } });
+});
+
+test('parses netsh wlan output', () => {
+  const { parseWlan } = require('../src/main/system');
+  assert.deepEqual(parseWlan('    State                  : connected\n    SSID                   : Home\n    Signal                 : 88%\n'), { wifi: 'on', ssid: 'Home', signal: 88 });
+  assert.deepEqual(parseWlan(''), { wifi: 'none' });
+});
+
 test('endsWithQuestion', () => {
   assert.equal(endsWithQuestion('Done.\n\nWant me to commit?'), true);
   assert.equal(endsWithQuestion('Is it? Yes. All done.'), false);

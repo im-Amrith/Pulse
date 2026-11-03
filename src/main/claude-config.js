@@ -74,7 +74,16 @@ function createClaudeConfig({ token, settingsFile = path.join(os.homedir(), '.cl
     return status();
   }
 
-  return { status, connect, disconnect, EVENTS };
+  // The model Claude Code starts with ("model" in settings.json); '' means Claude Code's own default.
+  function getModel() { try { return String(read().model || ''); } catch { return ''; } }
+  function setModel(model) {
+    if (!['', 'opus', 'sonnet', 'haiku', 'opusplan'].includes(model)) throw new Error('Unknown model.');
+    const settings = read();
+    if (model) settings.model = model; else delete settings.model;
+    write(settings);
+  }
+
+  return { status, connect, disconnect, getModel, setModel, EVENTS };
 }
 
 module.exports = { createClaudeConfig, EVENTS, HOOK_URL };

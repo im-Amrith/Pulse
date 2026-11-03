@@ -12,5 +12,8 @@
   "license": "MIT",
   "devDependencies": {
     "electron": "^38.2.0"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
   }
 }

@@ -5,7 +5,7 @@ const path = require('node:path');
 const { EventEmitter } = require('node:events');
 
 class Media extends EventEmitter {
-  constructor() { super(); this.state = { active: false }; this.child = null; this.stopped = false; this.restarts = 0; }
+  constructor() { super(); this.state = { active: false }; this.volume = { level: null, muted: false }; this.child = null; this.stopped = false; this.restarts = 0; }
 
   start() {
     if (process.platform !== 'win32' || this.child) return;
@@ -21,7 +21,11 @@ class Media extends EventEmitter {
       while ((nl = buf.indexOf('\n')) >= 0) {
         const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
         if (!line) continue;
-        try { this.state = JSON.parse(line); this.restarts = 0; this.emit('change', this.state); } catch {}
+        let msg; try { msg = JSON.parse(line); } catch { continue; }
+        this.restarts = 0;
+        if (msg.type === 'volume') this.volume = { level: msg.level, muted: Boolean(msg.muted) };
+        else this.state = msg;
+        this.emit('change');
       }
     });
     this.child.on('exit', () => {
@@ -31,7 +35,7 @@ class Media extends EventEmitter {
   }
 
   command(cmd) {
-    if (!/^(toggle|next|prev|seek \d+(\.\d+)?)$/.test(cmd)) return;
+    if (!/^(toggle|next|prev|seek \d+(\.\d+)?|vol \d{1,3}|mute [01])$/.test(cmd)) return;
     try { this.child?.stdin.write(cmd + '\n'); } catch {}
   }
 

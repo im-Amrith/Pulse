@@ -1,17 +1,35 @@
 'use strict';
-/* global pulse */
-// Pulse island renderer. All data coming from Claude Code is rendered with textContent (never innerHTML).
+/* global pulse, Eyes, icon */
+// Pulse island renderer. Data from Claude Code is always rendered with textContent, never innerHTML.
 
 const $ = sel => document.querySelector(sel);
-const island = $('#island');
-let S = null;              // latest state from main
+const island = $('#island'), page = $('#page');
+let S = null;          // latest state from main
 let open = false;
-let tab = 'claude';
-const drafts = {};         // input drafts keyed by data-key, survive re-renders
-const picks = {};          // AskUserQuestion selections: sessionId -> { question: Set(labels) }
+let current = 'home';
+let menuOpen = false;
 let lastError = '';
+const drafts = {};     // text drafts keyed by data-key, survive re-renders
+const picks = {};      // AskUserQuestion selections: sessionId -> { question: Set }
+const chat = { question: '', answer: '', error: '', busy: false };
+let noteEditing = false;
+let copiedAt = { text: '', at: 0 };
 
-// ---------- tiny DOM helper ----------
+// ---------- pages ----------
+const PAGES = [
+  { id: 'home', label: 'Home', icon: 'home', c: '#e6e6ea', title: ['', ''], h: 200 },
+  { id: 'claude', label: 'Claude', icon: 'spark', c: '#ff8c5a', title: ['Claude', 'Code'], h: 210 },
+  { id: 'music', label: 'Music', icon: 'music', c: '#ff3b5c', title: ['Music', 'Player'], h: 170 },
+  { id: 'chat', label: 'Ask', icon: 'chat', c: '#34d07a', title: ['Ask', 'Pulse'], h: 250 },
+  { id: 'focus', label: 'Focus', icon: 'timer', c: '#b56bff', title: ['Focus', 'Timer'], h: 200 },
+  { id: 'tray', label: 'Tray', icon: 'tray', c: '#ffc533', title: ['File', 'Tray'], h: 190 },
+  { id: 'clipboard', label: 'Clipboard', icon: 'copy', c: '#3fb6ff', title: ['Clip', 'board'], h: 200 },
+  { id: 'note', label: 'Note', icon: 'note', c: '#ffd23f', title: ['Note', 'pad'], h: 200 },
+  { id: 'settings', label: 'Settings', icon: 'gear', c: '#b8b8c0', title: ['Pulse', 'Settings'], h: 300, hidden: true },
+];
+const pageOf = id => PAGES.find(p => p.id === id) || PAGES[0];
+
+// ---------- helpers ----------
 function h(tag, props = {}, ...kids) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(props || {})) {
@@ -25,17 +43,15 @@ function h(tag, props = {}, ...kids) {
   for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
   return el;
 }
-const fmtDur = s => { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}:${String(s % 60).padStart(2, '0')}`; };
-const ago = t => { const s = (Date.now() - t) / 1000; return s < 60 ? 'just now' : s < 3600 ? `${Math.floor(s / 60)}m ago` : s < 86400 ? `${Math.floor(s / 3600)}h ago` : new Date(t).toLocaleDateString(); };
-const resetIn = r => { if (!r) return ''; const ms = (typeof r === 'number' ? (r < 1e12 ? r * 1000 : r) : Date.parse(r)) - Date.now(); return ms > 0 ? `resets in ${fmtDur(ms / 1000)}` : ''; };
-const level = p => (p >= 90 ? 'full' : p >= 70 ? 'hot' : '');
+const fmt = s => { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60); return m >= 60 ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` : `${m}:${String(s % 60).padStart(2, '0')}`; };
+const ago = t => { const s = (Date.now() - t) / 1000; return s < 60 ? 'now' : s < 3600 ? `${Math.floor(s / 60)} min` : s < 86400 ? new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : new Date(t).toLocaleDateString([], { day: 'numeric', month: 'short' }); };
+const resetMs = r => { if (!r) return 0; const t = typeof r === 'number' ? (r < 1e12 ? r * 1000 : r) : Date.parse(r); return Math.max(0, t - Date.now()); };
+const isToday = t => new Date(t).toDateString() === new Date().toDateString();
 
 async function act(fn) {
   try { lastError = ''; await fn(); } catch (e) { lastError = e.message; }
   render();
 }
-
-// Keep focus and caret across re-renders.
 function preserveFocus(fn) {
   const a = document.activeElement, key = a?.dataset?.key, start = a?.selectionStart, end = a?.selectionEnd;
   fn();
@@ -43,35 +59,56 @@ function preserveFocus(fn) {
   const el = document.querySelector(`[data-key="${CSS.escape(key)}"]`);
   if (el && el !== a) { el.focus(); try { el.setSelectionRange(start, end); } catch {} }
 }
-function draftInput(key, props = {}, multiline = false) {
-  const el = h(multiline ? 'textarea' : 'input', { type: multiline ? null : 'text', 'data-key': key, ...props });
+function draftInput(key, props = {}) {
+  const el = h('input', { type: 'text', 'data-key': key, ...props });
   el.value = drafts[key] || '';
   el.addEventListener('input', () => { drafts[key] = el.value; });
   return el;
 }
 
+// ---------- eyes ----------
+const pillEyes = new Eyes($('#pill-eyes'), { reach: 3 });
+const headEyes = new Eyes($('#head-eyes'), { reach: 1.5 });
+const chatEyesEl = h('div', { 'data-pokeable': true });
+const chatEyes = new Eyes(chatEyesEl, { reach: 9 }); // reused across renders so blinking and gaze stay smooth
+pulse.onCursor(c => Eyes.follow(c));
+let lastActivity = Date.now();
+
+function eyeMood() {
+  if (!S) return 'idle';
+  if (chat.busy) return 'working';
+  const m = S.hub.mood;
+  if (m !== 'idle') return m;
+  return Date.now() - lastActivity > 5 * 60_000 && !S.media.playing ? 'sleepy' : 'idle';
+}
+function updateEyes() {
+  const mood = eyeMood();
+  for (const e of Eyes.all) { e.setMood(mood); e.setMusic(Boolean(S?.media.active && S.media.playing)); }
+}
+document.addEventListener('mousemove', () => { lastActivity = Date.now(); });
+
 // ---------- open / close ----------
-// focus=true only for things you did yourself (click, shortcut, tray), so Pulse never steals your keyboard.
-function setOpen(v, { focus = false } = {}) {
+// focus=true only for things you did yourself, so Pulse never steals the keyboard from your app.
+function setOpen(v, { focus = false, to } = {}) {
+  if (to) current = to;
   if (v && focus) pulse.focus();
-  if (open === v) return;
-  open = v;
+  if (open === v) { render(); return; }
+  open = v; menuOpen = false;
   island.classList.toggle('open', v);
   island.classList.toggle('pill', !v);
   pulse.interactive(v || hovering);
   if (!v && S && ['finished', 'failed'].includes(S.hub.mood)) pulse.ack();
+  if (!v) noteEditing = false;
   render();
 }
-$('#bar').addEventListener('click', () => setOpen(true, { focus: true }));
-$('#close').addEventListener('click', () => setOpen(false));
-document.addEventListener('keydown', e => { if (e.key === 'Escape') setOpen(false); });
-pulse.onOpen(() => setOpen(true, { focus: true }));
+$('#pill').addEventListener('click', () => setOpen(true, { focus: true }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (menuOpen) { menuOpen = false; render(); } else setOpen(false); } });
+pulse.onOpen(to => setOpen(true, { focus: true, to: typeof to === 'string' ? to : undefined }));
 pulse.onToggle(() => setOpen(!open, { focus: true }));
-pulse.onBlur(() => { if (!S?.hub.sessions.some(s => s.holding)) setOpen(false); });
-pulse.onAttention(() => { if (S?.prefs.autoOpen !== false) { tab = 'claude'; setOpen(true); } chime('ask'); });
-pulse.onFinished(kind => chime(kind === 'failed' ? 'fail' : 'done'));
+pulse.onBlur(() => { if (!S?.hub.sessions.some(s => s.holding) && !chat.busy) setOpen(false); });
+pulse.onAttention(() => { if (S?.prefs.autoOpen !== false) setOpen(true, { to: 'claude' }); chime('ask'); });
+pulse.onFinished(kind => { chime(kind === 'failed' ? 'fail' : 'done'); });
 
-// Click-through: the window ignores the mouse except while it's over the island.
 let hovering = false;
 document.addEventListener('mousemove', e => {
   const over = island.contains(e.target);
@@ -79,7 +116,12 @@ document.addEventListener('mousemove', e => {
 });
 document.addEventListener('mouseleave', () => { if (hovering) { hovering = false; pulse.interactive(open); } });
 
-for (const b of document.querySelectorAll('#tabs [data-tab]')) b.addEventListener('click', () => { tab = b.dataset.tab; render(); });
+// Dropping files anywhere on the island parks them in the tray.
+let dragDepth = 0;
+document.addEventListener('dragenter', e => { if (!e.dataTransfer?.types.includes('Files')) return; e.preventDefault(); dragDepth++; island.classList.add('dropping'); if (!open) setOpen(true, { to: 'tray' }); else if (current !== 'tray') { current = 'tray'; render(); } });
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; island.classList.remove('dropping'); } });
+document.addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; island.classList.remove('dropping'); if (e.dataTransfer.files.length) act(() => pulse.shelfAdd(e.dataTransfer.files)); });
 
 // ---------- sound ----------
 let audio;
@@ -87,39 +129,113 @@ function chime(kind) {
   if (S && S.prefs.sound === false) return;
   try {
     audio ||= new AudioContext();
-    const notes = { done: [660, 880], ask: [880, 660, 880], fail: [440, 330] }[kind] || [660];
+    const notes = { done: [784, 1047], ask: [988, 784, 988], fail: [392, 311], focus: [659, 784, 988] }[kind] || [784];
     notes.forEach((f, i) => {
-      const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime + i * 0.12;
+      const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime + i * 0.11;
       o.type = 'sine'; o.frequency.value = f;
-      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.12, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-      o.connect(g).connect(audio.destination); o.start(t); o.stop(t + 0.4);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.1, t + 0.015); g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      o.connect(g).connect(audio.destination); o.start(t); o.stop(t + 0.45);
     });
   } catch {}
 }
 
-// ---------- bar ----------
-function renderBar() {
+// ---------- focus timer (renderer-owned, survives reloads via localStorage) ----------
+const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+let F = store.get('focus', {});
+const focusLen = () => (S?.prefs.focusMinutes || 25) * 60;
+const focusLeft = () => (F.endsAt ? Math.max(0, (F.endsAt - Date.now()) / 1000) : F.pausedLeft ?? focusLen());
+function focusStart() { F = { endsAt: Date.now() + focusLeft() * 1000, total: F.total || focusLen() }; store.set('focus', F); render(); }
+function focusPause() { F = { pausedLeft: focusLeft(), total: F.total }; store.set('focus', F); render(); }
+function focusReset() { F = {}; store.set('focus', F); render(); }
+
+// ======================= collapsed pill =======================
+function renderPill() {
   const { hub, media } = S;
   const top = hub.sessions[0];
   island.dataset.mood = hub.mood;
-  const text = top && top.state !== 'idle' ? `${top.project || 'Claude'} · ${top.label}` : !S.claude.connected ? 'Pulse · not connected' : 'Pulse';
-  $('#bar-text').textContent = text;
-  const bm = $('#bar-media');
-  bm.hidden = !(media.active && media.playing && (!top || top.state === 'idle'));
-  bm.textContent = media.active ? `♪ ${media.title || ''}` : '';
-  const ring = $('#bar-ring'), used = hub.usage.fiveHour?.used;
-  ring.hidden = used == null;
-  if (used != null) {
-    ring.querySelector('.ring-fg').style.strokeDashoffset = String(94.25 * (1 - used / 100));
-    ring.setAttribute('class', `ring ${level(used)}`);
-    ring.setAttribute('aria-label', `5-hour limit ${used}%`);
-  }
+  const left = $('#pill-left'), right = $('#pill-right');
+  left.replaceChildren(); right.replaceChildren();
+  let wide = true;
+  if (top && top.state === 'working') {
+    left.append(icon('spark', 15)); left.firstChild.classList.add('spin');
+    right.append(h('span', { 'data-tick': top.startedAt, text: fmt((Date.now() - top.startedAt) / 1000) }));
+  } else if (top && top.state === 'asking') {
+    left.append(h('span', { style: 'color:var(--asking)', text: '●' }));
+    right.append(h('span', { style: 'color:var(--asking)', text: 'Needs you' }));
+  } else if (top && top.state === 'finished') {
+    left.append(h('span', { style: 'color:var(--finished)' }, icon('check', 15)));
+    right.append(h('span', { style: 'color:var(--finished)', text: 'Done' }));
+  } else if (top && top.state === 'failed') {
+    left.append(h('span', { style: 'color:var(--failed)' }, icon('x', 15)));
+    right.append(h('span', { style: 'color:var(--failed)', text: 'Failed' }));
+  } else if (F.endsAt) {
+    left.append(h('span', { style: 'color:#b56bff' }, icon('timer', 15)));
+    right.append(h('span', { id: 'pill-focus', style: 'color:#c99bff', text: fmt(focusLeft()) }));
+  } else if (media.active && media.playing) {
+    left.append(h('span', { class: 'pill-art', style: media.art ? `background-image:url("${media.art.replace(/"/g, '')}")` : '' }));
+    right.append(h('span', { class: 'eq on' }, h('i'), h('i'), h('i')));
+  } else wide = false;
+  island.classList.toggle('wide', wide);
 }
 
-// ---------- attention (always on top of the panel) ----------
+// ======================= header / nav / menu =======================
+function renderHeader() {
+  const p = pageOf(current);
+  document.documentElement.style.setProperty('--accent', p.c);
+  const title = $('#title'); title.replaceChildren();
+  if (current === 'home') {
+    const w = S.system.wifi;
+    if (w !== 'none') title.append(h('span', { title: w === 'on' ? `${S.system.ssid} · ${S.system.signal ?? '?'}%` : 'Wi-Fi off' }, icon(w === 'on' ? 'wifi' : 'wifiOff', 17)));
+    title.append(h('span', { class: 'muted', style: 'font-weight:600', text: S.claude.connected ? '' : 'Not connected' }));
+  } else {
+    // "Claude Code" keeps its space; "Clipboard" / "Notepad" are one word with a coloured half.
+    const joined = /^[a-z]/.test(p.title[1]);
+    title.append(h('span', {}, p.title[0], joined ? '' : ' ', h('span', { class: 'hl', text: p.title[1] })));
+  }
+  tickClock();
+  const u = S.hub.usage.fiveHour, pill = $('#usage');
+  pill.hidden = !u;
+  if (u) { pill.className = u.used >= 80 ? 'high' : u.used >= 50 ? 'mid' : ''; pill.title = '5-hour limit used · time until it resets'; tickUsage(); }
+  const mb = $('#menu-btn'); mb.replaceChildren(icon('dots', 18));
+  if (!S.claude.connected) mb.append(h('i', { class: 'dot', style: 'background:var(--asking)' }));
+}
+
+function renderNav() {
+  const nav = $('#nav'); nav.replaceChildren();
+  for (const p of PAGES.filter(x => !x.hidden)) {
+    nav.append(h('button', { class: `navbtn ${p.id === current ? 'active' : ''}`, style: `--c:${p.c}`, title: p.label, onclick: () => { current = p.id; menuOpen = false; render(); } },
+      icon(p.icon, 17), h('span', { text: p.label })));
+  }
+  const v = S.volume;
+  nav.append(h('button', { class: 'iconbtn vol', title: v.level == null ? 'Volume' : `Volume ${v.level}%${v.muted ? ' (muted)' : ''}`, onclick: () => pulse.media(`mute ${v.muted ? 0 : 1}`) }, icon(v.muted ? 'mute' : 'volume', 17)));
+}
+
+function renderMenu() {
+  const m = $('#menu');
+  m.hidden = !menuOpen;
+  if (!menuOpen) return;
+  m.replaceChildren();
+  const v = S.volume;
+  if (v.level != null) {
+    const range = h('input', { type: 'range', min: 0, max: 100, value: v.level, style: `--p:${v.level}%` });
+    range.addEventListener('input', () => { range.style.setProperty('--p', `${range.value}%`); pulse.media(`vol ${range.value}`); });
+    m.append(h('div', { class: 'mitem', style: 'cursor:default' }, icon(v.muted ? 'mute' : 'volume', 18), range), h('div', { class: 'msep' }));
+  }
+  const item = (ic, label, fn, cls = '') => h('button', { class: `mitem ${cls}`, onclick: () => { menuOpen = false; fn(); } }, icon(ic, 18), label);
+  m.append(
+    !S.claude.connected ? item('spark', 'Connect Claude Code', () => act(() => pulse.connect())) : null,
+    item('gear', 'Settings', () => { current = 'settings'; render(); }),
+    item('up', 'Fold in', () => setOpen(false)),
+    h('div', { class: 'msep' }),
+    item('power', 'Quit Pulse', () => pulse.quit(), 'danger'));
+}
+$('#menu-btn').addEventListener('click', e => { e.stopPropagation(); menuOpen = !menuOpen; render(); });
+document.addEventListener('click', e => { if (menuOpen && !$('#menu').contains(e.target) && !$('#menu-btn').contains(e.target)) { menuOpen = false; render(); } });
+
+// ======================= attention (permissions, questions, plans) =======================
 function renderAttention() {
-  const box = $('#attention');
-  box.replaceChildren();
+  const box = $('#attention'); box.replaceChildren();
+  if (lastError) box.append(h('div', { class: 'error', text: lastError }));
   for (const s of S.hub.sessions.filter(x => x.holding && x.pending)) box.append(askCard(s));
 }
 
@@ -127,272 +243,365 @@ function askCard(s) {
   const p = s.pending;
   const head = h('div', { class: 'ask-head' }, h('span', { class: 'tag', text: s.project || 'Claude' }),
     h('span', { text: p.kind === 'plan' ? 'Plan ready for review' : p.kind === 'ask' ? 'Claude has a question' : `Allow ${p.tool}?` }));
-
   if (p.kind === 'tool') {
     return h('div', { class: 'ask' }, head, h('pre', { class: 'mono', text: p.detail }),
       h('div', { class: 'row end' },
-        h('button', { class: 'btn bad', text: 'Deny', onclick: () => act(() => pulse.deny(s.id)) }),
-        h('button', { class: 'btn good', text: 'Allow', onclick: () => act(() => pulse.allow(s.id)) })));
+        h('button', { class: 'btn no', text: 'Deny', onclick: () => act(() => pulse.deny(s.id)) }),
+        h('button', { class: 'btn go', text: 'Allow', onclick: () => act(() => pulse.allow(s.id)) })));
   }
-
   if (p.kind === 'plan') {
     const key = `plan:${s.id}`;
     return h('div', { class: 'ask' }, head, h('div', { class: 'plan', text: p.plan }),
       draftInput(key, { placeholder: 'Optional: what should change?' }),
       h('div', { class: 'row end' },
         h('button', { class: 'btn', text: 'Send feedback', onclick: () => act(async () => { await pulse.plan(s.id, false, drafts[key]); delete drafts[key]; }) }),
-        h('button', { class: 'btn good', text: 'Approve plan', onclick: () => act(() => pulse.plan(s.id, true)) })));
+        h('button', { class: 'btn go', text: 'Approve plan', onclick: () => act(() => pulse.plan(s.id, true)) })));
   }
-
-  // AskUserQuestion
   const sel = (picks[s.id] ||= {});
   const qs = p.questions.map((q, qi) => {
     const set = (sel[q.question] ||= new Set());
-    const otherKey = `ask:${s.id}:${qi}`;
-    return h('div', { class: 'q' },
-      h('div', { class: 'q-title', text: q.question }),
+    return h('div', { class: 'q' }, h('div', { class: 'q-title', text: q.question }),
       h('div', { class: 'opts' }, q.options.map(o => h('button', {
         class: `opt ${set.has(o.label) ? 'on' : ''}`,
-        onclick: () => { if (!q.multiSelect) set.clear(); set.has(o.label) && q.multiSelect ? set.delete(o.label) : set.add(o.label); render(); },
+        onclick: () => { if (q.multiSelect) { set.has(o.label) ? set.delete(o.label) : set.add(o.label); } else { set.clear(); set.add(o.label); } render(); },
       }, o.label, o.description ? h('small', { text: o.description }) : null))),
-      draftInput(otherKey, { placeholder: 'Or type your own answer' }));
+      draftInput(`ask:${s.id}:${qi}`, { placeholder: 'Or type your own answer' }));
   });
   const submit = () => act(async () => {
     const answers = {};
-    p.questions.forEach((q, qi) => {
-      const own = (drafts[`ask:${s.id}:${qi}`] || '').trim();
-      answers[q.question] = own || [...(sel[q.question] || [])];
-    });
-    await pulse.answer(s.id, answers);
-    delete picks[s.id];
+    p.questions.forEach((q, qi) => { const own = (drafts[`ask:${s.id}:${qi}`] || '').trim(); answers[q.question] = own || [...(sel[q.question] || [])]; });
+    await pulse.answer(s.id, answers); delete picks[s.id];
   });
-  return h('div', { class: 'ask' }, head, qs,
-    h('div', { class: 'row end' },
-      h('button', { class: 'btn bad', text: 'Skip', onclick: () => act(() => pulse.deny(s.id)) }),
-      h('button', { class: 'btn primary', text: 'Send answer', onclick: submit })));
+  return h('div', { class: 'ask' }, head, qs, h('div', { class: 'row end' },
+    h('button', { class: 'btn no', text: 'Skip', onclick: () => act(() => pulse.deny(s.id)) }),
+    h('button', { class: 'btn go', text: 'Send answer', onclick: submit })));
 }
 
-// ---------- Claude view ----------
-function usageMeters() {
-  const u = S.hub.usage;
-  if (!u.fiveHour && !u.sevenDay) return null;
-  const meter = (name, w) => w && h('div', { class: 'meter' },
-    h('div', { class: 'lbl' }, h('span', { text: `${name} · ${w.used}%` }), h('span', { text: resetIn(w.resetsAt) })),
-    h('div', { class: 'track' }, h('div', { class: `fill ${level(w.used)}`, style: `width:${w.used}%` })));
-  return h('div', { class: 'usage' }, meter('5-hour limit', u.fiveHour), meter('Weekly', u.sevenDay));
+// ======================= Home =======================
+function ringSvg(pct, color) {
+  const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', 'r'); svg.setAttribute('viewBox', '0 0 52 52');
+  const mk = (stroke, dash) => { const c = document.createElementNS(ns, 'circle'); c.setAttribute('cx', 26); c.setAttribute('cy', 26); c.setAttribute('r', 24); c.setAttribute('stroke', stroke); if (dash != null) { c.setAttribute('stroke-dasharray', '150.8'); c.setAttribute('stroke-dashoffset', String(150.8 * (1 - dash))); c.setAttribute('stroke-linecap', 'round'); } return c; };
+  svg.append(mk('rgba(255,255,255,.15)'), mk(color, pct));
+  return svg;
+}
+function renderHome() {
+  const jobs = S.history.filter(e => isToday(e.at) && e.result === 'done').length;
+  const top = S.hub.sessions[0], live = top && top.state !== 'idle';
+  const used = S.hub.usage.fiveHour?.used;
+  const claudeFab = h('span', { class: 'fab ring-btn' }, icon('spark', 20), used != null ? ringSvg(used / 100, used >= 80 ? '#ff6f86' : '#fff') : null);
+  const m = S.media;
+  const left = focusLeft();
+  page.append(h('div', { class: 'cards' },
+    h('button', { class: 'hcard c-claude', onclick: () => { current = 'claude'; render(); } },
+      h('span', { class: 'lbl', text: 'Claude Code' }), claudeFab,
+      h('div', { class: 'big', text: live ? { working: 'Working', asking: 'Needs you', finished: 'Done', failed: 'Failed' }[top.state] : String(jobs) }),
+      h('div', { class: 'sub', text: live ? (top.project || top.label) : !S.claude.connected ? 'not connected yet' : jobs === 1 ? 'job today' : 'jobs today' })),
+    h('button', { class: 'hcard c-music', onclick: () => { current = 'music'; render(); } },
+      h('span', { class: 'lbl', text: 'Music' }),
+      h('span', { class: 'fab', onclick: e => { if (m.active) { e.stopPropagation(); pulse.media('toggle'); } } }, icon(m.active ? (m.playing ? 'pause' : 'play') : 'music', 18)),
+      h('div', { class: 'big', text: m.active ? m.title || 'Unknown' : 'Quiet' }),
+      h('div', { class: 'sub', text: m.active ? m.artist || '' : 'Nothing playing' })),
+    h('button', { class: 'hcard c-focus', onclick: () => { current = 'focus'; render(); } },
+      h('span', { class: 'lbl', text: 'Focus' }),
+      h('span', { class: 'fab white', onclick: e => { e.stopPropagation(); F.endsAt ? focusPause() : focusStart(); } }, icon(F.endsAt ? 'pause' : 'play', 20)),
+      h('div', { class: 'big', 'data-focus': true, text: fmt(left) }),
+      h('div', { class: 'sub', text: F.endsAt ? 'Stay with it' : F.pausedLeft ? 'Paused' : 'Ready to start' }))));
 }
 
-function sessionCard(s) {
-  const elapsed = s.startedAt ? ((s.endedAt || Date.now()) - s.startedAt) / 1000 : 0;
-  const card = h('div', { class: 'session' },
-    h('div', { class: 's-head' },
-      h('span', { class: `orb ${s.state}` }),
-      h('span', { class: 's-title', text: s.project || 'Claude Code' }),
-      h('span', { class: 's-label', text: s.label }),
-      s.startedAt ? h('span', { class: 's-time', 'data-tick': s.endedAt ? null : s.startedAt, text: fmtDur(elapsed) }) : null,
-      h('button', { class: 'link', text: '✕', title: 'Hide this session', onclick: () => act(() => pulse.dismiss(s.id)) })),
-    s.prompt ? h('div', { class: 's-prompt', text: `“${s.prompt}”` }) : null);
-
-  if (s.steps.length && s.state !== 'idle') {
-    const icon = { running: '●', done: '✓', failed: '✕' };
-    card.append(h('ul', { class: 'steps' }, s.steps.slice(-6).map(st => h('li', { class: st.status },
-      h('span', { class: 'st', text: icon[st.status] }), h('span', { text: st.verb }), h('span', { class: 'tg mono', text: st.target })))));
-  }
-  if (s.diff && s.state === 'working') {
-    card.append(h('div', { class: 'diff mono' }, h('div', { class: 'f', text: s.diff.file }),
-      s.diff.removed.map(l => h('div', { class: 'del', text: '- ' + l })), s.diff.added.map(l => h('div', { class: 'add', text: '+ ' + l }))));
-  }
-  if (s.output?.tail.length && s.state === 'working') {
-    card.append(h('div', { class: 'diff mono' }, h('div', { class: 'f', text: '$ ' + s.output.command }),
-      s.output.tail.map(l => h('div', { class: s.output.failed ? 'del' : '', text: l }))));
-  }
-  const chips = [];
-  if (s.files.length) chips.push(`${s.files.length} file${s.files.length > 1 ? 's' : ''} changed`);
-  if (s.commands.length) chips.push(`${s.commands.length} command${s.commands.length > 1 ? 's' : ''}`);
-  if (s.context != null) chips.push(`context ${s.context}%`);
-  if (s.model) chips.push(s.model);
-  if (chips.length) card.append(h('div', { class: 'chips' }, chips.map(c => h('span', { class: 'chip', text: c }))));
-
-  if (s.lastMessage && ['finished', 'asking', 'failed'].includes(s.state) && !s.holding) card.append(h('div', { class: 'message', text: s.lastMessage }));
-  if (s.canReply) {
-    const key = `reply:${s.id}`;
-    const input = draftInput(key, { placeholder: 'Reply to Claude…', onkeydown: e => { if (e.key === 'Enter') send(); } });
-    const send = () => act(async () => { await pulse.reply(s.id, drafts[key]); delete drafts[key]; });
-    card.append(h('div', { class: 'row' }, input, h('button', { class: 'btn primary', text: 'Send', onclick: send })));
-  }
-  if (s.cwd) card.append(h('div', { class: 'row' }, h('button', { class: 'link', style: 'margin:0', text: 'Open project folder', onclick: () => pulse.openFolder(s.cwd) })));
-  return card;
-}
-
+// ======================= Claude =======================
+const ICON_STEP = { running: '●', done: '✓', failed: '✕' };
 function renderClaude() {
-  const v = $('#view-claude');
-  v.replaceChildren();
-  if (!S.claude.connected) {
-    v.append(h('div', { class: 'card' },
-      h('h3', { text: 'Connect Claude Code' }),
-      h('p', { class: 'muted', text: 'Pulse adds local hooks to your Claude Code settings so it can follow your sessions. Nothing leaves this PC. A backup of settings.json is kept.' }),
-      h('button', { class: 'btn primary', text: 'Connect', onclick: () => act(() => pulse.connect()) })));
-    if (!S.hub.sessions.length) return;
-  }
-  if (S.hub.error) v.append(h('div', { class: 'error', text: S.hub.error }));
-  const meters = usageMeters(); if (meters) v.append(meters);
-  const list = S.hub.sessions;
-  if (!list.length) {
-    v.append(h('div', { class: 'empty' }, S.hub.lastHeard ? 'No active sessions. Start a prompt in Claude Code.' : 'Waiting for Claude Code… (restart any Claude Code that was already open)'));
+  if (!S.claude.connected && !S.hub.sessions.length) {
+    page.append(h('div', { class: 'claude' },
+      h('div', { class: 'claude-left' },
+        h('div', { class: 'brand' }, h('span', { class: 'logo' }, icon('spark', 15)), 'Claude Code'),
+        h('div', { class: 'live-label', style: 'margin-top:18px', text: 'Connect to follow your sessions' }),
+        h('p', { class: 'muted', text: 'Pulse adds local hooks to ~/.claude/settings.json (a backup is kept). Nothing leaves this PC.' }),
+        h('div', {}, h('button', { class: 'btn acc', text: 'Connect Claude Code', onclick: () => act(() => pulse.connect()) }))),
+      recentBox()));
     return;
   }
-  for (const s of list) v.append(sessionCard(s));
-}
-
-// ---------- Activity view ----------
-function renderActivity() {
-  const v = $('#view-activity');
-  v.replaceChildren();
-  if (!S.history.length) { v.append(h('div', { class: 'empty', text: 'Finished Claude Code turns will show up here.' })); return; }
-  v.append(h('div', { class: 'row end' }, h('button', { class: 'link', text: 'Clear history', onclick: () => act(() => pulse.clearHistory()) })));
-  for (const e of S.history) {
-    const mood = e.result === 'error' ? 'failed' : e.result === 'question' ? 'asking' : 'finished';
-    const row = h('div', { class: 'hist', title: e.summary || '' },
-      h('span', { class: 'orb', style: `background:var(--${mood})` }),
-      h('span', { class: 'p', text: e.prompt }),
-      h('span', { class: 'muted', text: ago(e.at) }),
-      h('span', { class: 'meta', text: [e.project, fmtDur(e.seconds), e.files ? `${e.files} files` : '', e.commands ? `${e.commands} cmds` : ''].filter(Boolean).join(' · ') }));
-    v.append(row);
+  const top = S.hub.sessions.find(s => s.state !== 'idle');
+  const left = h('div', { class: 'claude-left' }, h('div', { class: 'brand' }, h('span', { class: 'logo' }, icon('spark', 15)), top ? top.project || 'Claude Code' : 'Claude Code',
+    top ? h('span', { class: 'muted', style: 'font-weight:600;margin-left:auto', 'data-tick': top.endedAt ? null : top.startedAt, text: top.startedAt ? fmt(((top.endedAt || Date.now()) - top.startedAt) / 1000) : '' }) : null));
+  if (!top) {
+    const jobs = S.history.filter(e => isToday(e.at) && e.result === 'done').length;
+    left.append(h('div', { class: 'count', text: String(jobs) }), h('div', { class: 'muted', text: jobs === 1 ? 'job done today' : 'jobs done today' }));
+    if (S.hub.error) left.append(h('div', { class: 'error', text: S.hub.error }));
+    else if (!S.hub.lastHeard) left.append(h('div', { class: 'dim', style: 'margin-top:8px', text: 'Waiting for Claude Code… restart any session that was already open.' }));
+  } else {
+    const live = h('div', { class: 'live' }, h('div', { class: 'live-label ellipsis', text: top.label }));
+    if (top.prompt) live.append(h('div', { class: 'live-prompt ellipsis', text: `“${top.prompt}”` }));
+    if (top.state === 'working' && top.diff) {
+      live.append(h('div', { class: 'diff mono' }, h('div', { class: 'f', text: top.diff.file }),
+        top.diff.removed.slice(0, 2).map(l => h('div', { class: 'del', text: '- ' + l })), top.diff.added.slice(0, 2).map(l => h('div', { class: 'add', text: '+ ' + l }))));
+    } else if (top.state === 'working' && top.output?.tail.length) {
+      live.append(h('div', { class: 'diff mono' }, h('div', { class: 'f', text: '$ ' + top.output.command }), top.output.tail.slice(-2).map(l => h('div', { class: top.output.failed ? 'del' : '', text: l }))));
+    } else if (top.steps.length && top.state === 'working') {
+      live.append(h('ul', { class: 'steps' }, top.steps.slice(-3).map(st => h('li', { class: st.status }, h('span', { class: 'st', text: ICON_STEP[st.status] }), h('span', { text: st.verb }), h('span', { class: 'muted mono ellipsis', text: st.target })))));
+    } else if (top.lastMessage && !top.holding) {
+      live.append(h('div', { class: 'diff', style: 'max-height:62px;overflow:auto;white-space:pre-wrap;user-select:text', text: top.lastMessage }));
+    }
+    if (top.canReply) {
+      const key = `reply:${top.id}`;
+      const send = () => act(async () => { await pulse.reply(top.id, drafts[key]); delete drafts[key]; });
+      live.append(h('div', { class: 'reply' }, draftInput(key, { placeholder: 'Reply to Claude…', onkeydown: e => { if (e.key === 'Enter') send(); } }), h('button', { class: 'sendbtn', onclick: send }, icon('send', 16))));
+    } else {
+      const chips = [top.files.length && `${top.files.length} file${top.files.length > 1 ? 's' : ''}`, top.commands.length && `${top.commands.length} cmd`, top.context != null && `ctx ${top.context}%`, top.model].filter(Boolean);
+      if (chips.length) live.append(h('div', { class: 'muted', style: 'font-size:12px', text: chips.join(' · ') }));
+    }
+    left.append(live);
   }
+  const model = h('select', { onchange: e => act(() => pulse.setModel(e.target.value)) },
+    [['', 'Default'], ['opus', 'Opus'], ['sonnet', 'Sonnet'], ['haiku', 'Haiku'], ['opusplan', 'Opus plan']].map(([v, l]) => h('option', { value: v, text: l })));
+  model.value = ['', 'opus', 'sonnet', 'haiku', 'opusplan'].includes(S.claude.model) ? S.claude.model : '';
+  page.append(h('div', { class: 'claude' }, left,
+    h('div', { style: 'display:grid;grid-template-rows:1fr auto;gap:10px;min-height:0' }, recentBox(), h('label', { class: 'model' }, 'Model', model))));
+}
+function recentBox() {
+  const items = S.history.slice(0, 4);
+  return h('div', { class: 'recent' }, h('h4', { text: 'RECENTLY' }),
+    items.length ? items.map(e => h('div', { class: 'rrow', title: e.summary || e.prompt },
+      h('span', { class: `chk ${e.result}` }, icon(e.result === 'error' ? 'x' : e.result === 'question' ? 'chat' : 'check', 12)),
+      h('span', { class: 'grow ellipsis', text: e.prompt }), h('time', { text: ago(e.at) })))
+      : h('div', { class: 'dim', style: 'padding:6px 0', text: 'Finished jobs show up here.' }),
+    items.length ? h('div', { class: 'row end' }, h('button', { class: 'link', style: 'font-size:11px', text: 'Clear', onclick: () => act(() => pulse.clearHistory()) })) : null);
 }
 
-// ---------- Media view ----------
+// ======================= Music =======================
 let mediaBase = { at: 0, pos: 0 };
-function renderMedia() {
-  const v = $('#view-media'), m = S.media;
-  v.replaceChildren();
-  if (!m.active) { v.append(h('div', { class: 'empty', text: m.error ? `Media: ${m.error}` : 'Nothing is playing. Start Spotify, YouTube or any player.' })); return; }
-  mediaBase = { at: m.updatedAt > 0 ? Math.min(m.updatedAt, Date.now()) : Date.now(), pos: m.position || 0 };
-  const app = String(m.app || '').replace(/\.exe$/i, '').split(/[!.\\]/).filter(Boolean).pop() || '';
-  const prog = h('div', { class: 'progress', onclick: e => {
-    if (!m.duration) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    pulse.media(`seek ${Math.round(((e.clientX - r.left) / r.width) * m.duration)}`);
-  } }, h('div', { class: 'fill', id: 'media-fill' }));
-  v.append(h('div', { class: 'player' },
-    h('div', { class: 'art', style: m.art ? `background-image:url("${m.art.replace(/"/g, '')}")` : '' }),
-    h('div', {},
-      h('div', { class: 'track-title', text: m.title || 'Unknown' }),
-      h('div', { class: 'muted', text: [m.artist, app].filter(Boolean).join(' · ') }),
-      h('div', { class: 'controls' },
-        h('button', { text: '⏮', title: 'Previous', onclick: () => pulse.media('prev') }),
-        h('button', { class: 'big', text: m.playing ? '❚❚' : '▶', title: 'Play/pause', onclick: () => pulse.media('toggle') }),
-        h('button', { text: '⏭', title: 'Next', onclick: () => pulse.media('next') })),
-      m.duration ? prog : null,
-      m.duration ? h('div', { class: 'times' }, h('span', { id: 'media-pos' }), h('span', { text: fmtDur(m.duration) })) : null)));
+function renderMusic() {
+  const m = S.media;
+  const app = String(m.app || '').replace(/\.exe$/i, '').split(/[!.\\]/).filter(Boolean).pop() || 'This PC';
+  if (m.active) mediaBase = { at: m.updatedAt > 0 ? Math.min(m.updatedAt, Date.now()) : Date.now(), pos: m.position || 0 };
+  const bar = h('div', { class: 'bar', onclick: e => { if (!m.duration) return; const r = e.currentTarget.getBoundingClientRect(); pulse.media(`seek ${Math.round(((e.clientX - r.left) / r.width) * m.duration)}`); } }, h('i', { id: 'm-fill', style: 'width:0' }));
+  page.append(h('div', { class: 'music' },
+    h('div', { class: 'track' },
+      h('div', { class: 'art', style: m.art ? `background-image:url("${m.art.replace(/"/g, '')}")` : '' }, m.art ? null : icon('music', 26)),
+      h('div', { class: 'grow' },
+        h('div', { class: 'ttl ellipsis', text: m.active ? m.title || 'Unknown' : 'Nothing is playing' }),
+        h('div', { class: 'muted ellipsis', text: m.active ? m.artist || '' : 'Start music in Spotify, a browser or any player.' })),
+      h('div', { class: `eq ${m.active && m.playing ? 'on' : ''}` }, ...Array.from({ length: 6 }, () => h('i')))),
+    h('div', { class: 'prog' }, h('span', { id: 'm-pos', text: '0:00' }), bar, h('span', { text: fmt(m.duration || 0) })),
+    h('div', { class: 'ctrls' },
+      h('button', { title: 'Previous', onclick: () => pulse.media('prev') }, icon('prev', 24)),
+      h('button', { title: 'Play / pause', onclick: () => pulse.media('toggle') }, icon(m.active && m.playing ? 'pause' : 'play', 30)),
+      h('button', { title: 'Next', onclick: () => pulse.media('next') }, icon('next', 24)),
+      h('span', { class: 'src' }, icon('laptop', 14), app))));
   tickMedia();
 }
 function tickMedia() {
   const m = S?.media; if (!m?.active || !m.duration) return;
   const pos = Math.min(m.duration, mediaBase.pos + (m.playing ? (Date.now() - mediaBase.at) / 1000 : 0));
-  const fill = $('#media-fill'), lbl = $('#media-pos');
-  if (fill) fill.style.width = `${(pos / m.duration) * 100}%`;
-  if (lbl) lbl.textContent = fmtDur(pos);
+  const f = $('#m-fill'), l = $('#m-pos');
+  if (f) f.style.width = `${(pos / m.duration) * 100}%`;
+  if (l) l.textContent = fmt(pos);
 }
 
-// ---------- Tools view ----------
-const note = $('#note');
-let noteTimer;
-note.addEventListener('input', () => { clearTimeout(noteTimer); noteTimer = setTimeout(() => pulse.setPrefs({ note: note.value }), 400); });
-
-const shelf = $('#shelf');
-for (const ev of ['dragenter', 'dragover']) document.addEventListener(ev, e => { e.preventDefault(); if (e.dataTransfer?.types.includes('Files')) { setOpen(true); tab = 'tools'; render(); shelf.classList.add('drop'); } });
-document.addEventListener('dragleave', e => { if (!e.relatedTarget) shelf.classList.remove('drop'); });
-document.addEventListener('drop', e => { e.preventDefault(); shelf.classList.remove('drop'); if (e.dataTransfer.files.length) act(() => pulse.shelfAdd(e.dataTransfer.files)); });
-$('#clip-clear').addEventListener('click', () => act(() => pulse.clearClipboard()));
-
-function renderTools() {
-  if (document.activeElement !== note) note.value = S.prefs.note || '';
-  const sl = $('#shelf-list'); sl.replaceChildren();
-  const files = S.prefs.shelf || [];
-  if (!files.length) sl.append(h('li', { class: 'muted' }, h('span', { text: 'Drag files onto the island to park them here.' })));
-  for (const f of files) {
-    sl.append(h('li', { draggable: 'true', title: f.path, ondragstart: e => { e.preventDefault(); pulse.shelfDrag(f.path); }, ondblclick: () => pulse.shelfOpen(f.path) },
-      h('span', { text: f.name }),
-      h('button', { class: 'x', text: '↗', title: 'Show in folder', onclick: e => { e.stopPropagation(); pulse.shelfReveal(f.path); } }),
-      h('button', { class: 'x', text: '✕', title: 'Remove', onclick: e => { e.stopPropagation(); act(() => pulse.shelfRemove(f.path)); } })));
+// ======================= Ask Pulse =======================
+async function askPulse(prompt, withScreen = false) {
+  if (chat.busy || !prompt.trim()) return;
+  Object.assign(chat, { question: prompt, answer: '', error: '', busy: true });
+  render();
+  try { chat.answer = await pulse.ask(prompt, withScreen); chime('done'); } catch (e) { chat.error = e.message; }
+  chat.busy = false; render();
+}
+async function onClipboard(make) {
+  const text = S.clipboard[0]?.text;
+  if (!text) { chat.error = 'Copy some text first, then pick this.'; render(); return; }
+  askPulse(make(text));
+}
+function renderChat() {
+  const eyes = chatEyesEl;
+  eyes.className = 'eyes big'; chatEyes.reach = 9;
+  const wrap = h('div', { class: 'chat' }, eyes);
+  if (chat.busy) {
+    wrap.append(h('h2', { text: 'Thinking…' }), h('div', { class: 'question ellipsis', text: chat.question }),
+      h('div', { style: 'margin-top:14px' }, h('button', { class: 'btn', onclick: () => { pulse.cancelAsk(); chat.busy = false; render(); } }, icon('stop', 12), 'Stop')));
+  } else if (chat.answer || chat.error) {
+    eyes.className = 'eyes mini'; chatEyes.reach = 1.5;
+    wrap.append(h('div', { class: 'question ellipsis', text: chat.question }),
+      h('div', { class: 'answer', style: chat.error ? 'color:var(--failed)' : '', text: chat.answer || chat.error }),
+      h('div', { class: 'row', style: 'margin-top:8px' },
+        chat.answer ? h('button', { class: 'btn', onclick: () => pulse.copy(chat.answer) }, icon('copy', 14), 'Copy') : null,
+        h('button', { class: 'btn', onclick: () => { Object.assign(chat, { answer: '', error: '', question: '' }); render(); } }, 'New question')));
+  } else {
+    const chip = (ic, c, label, fn) => h('button', { class: 'chip', style: `--c:${c}`, onclick: fn }, icon(ic, 15), label);
+    wrap.append(h('h2', { text: 'What can I do for you?' }), h('div', { class: 'muted', text: 'The quick actions use your last copied text. Answers come from your own Claude Code.' }),
+      h('div', { class: 'chips' },
+        chip('screen', '#3fb6ff', 'Look at my screen', () => askPulse('What is on my screen? Point out anything that looks wrong or needs my attention.', true)),
+        chip('bulb', '#ffd23f', 'Explain', () => onClipboard(t => `Explain this simply:\n\n${t}`)),
+        chip('check', '#34d07a', 'Check spelling', () => onClipboard(t => `Fix the spelling and grammar. Reply with only the corrected text:\n\n${t}`)),
+        chip('globe', '#5aa9ff', 'Translate', () => onClipboard(t => `Translate this into English. Reply with only the translation:\n\n${t}`)),
+        chip('lines', '#c48bff', 'Summarize', () => onClipboard(t => `Summarize in 3 short bullet points:\n\n${t}`))));
   }
-  const cl = $('#clip-list'); cl.replaceChildren();
-  if (!S.clipboard.length) cl.append(h('li', { class: 'muted' }, h('span', { text: 'Copied text appears here.' })));
-  for (const c of S.clipboard) cl.append(h('li', { title: 'Click to copy', onclick: () => pulse.copy(c.text) }, h('span', { class: 'mono', text: c.text.replace(/\s+/g, ' ') })));
-  renderFocus();
+  const key = 'chat';
+  const send = () => { const v = (drafts[key] || '').trim(); if (v) { drafts[key] = ''; askPulse(v); } };
+  if (!chat.busy) wrap.append(h('div', { class: 'askbar' }, draftInput(key, { placeholder: 'Ask Pulse something…', onkeydown: e => { if (e.key === 'Enter') send(); } }),
+    h('button', { class: 'sendbtn', title: 'Ask', onclick: send }, icon('send', 16))));
+  page.append(wrap);
 }
 
-// Focus timer lives in the renderer; its end time is kept in localStorage so a reload doesn't lose it.
-const focus = { load() { try { return JSON.parse(localStorage.getItem('focus')) || {}; } catch { return {}; } }, save(v) { try { localStorage.setItem('focus', JSON.stringify(v)); } catch {} } };
-let F = focus.load();
+// ======================= Focus =======================
 function renderFocus() {
-  const box = $('#focus'); box.replaceChildren();
+  const left = focusLeft(), total = F.total || focusLen();
+  const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 170 170');
+  const c = (stroke, frac) => { const e = document.createElementNS(ns, 'circle'); e.setAttribute('cx', 85); e.setAttribute('cy', 85); e.setAttribute('r', 78); e.setAttribute('stroke', stroke); if (frac != null) { e.id = 'dial-fg'; e.setAttribute('stroke-dasharray', '490'); e.setAttribute('stroke-dashoffset', String(490 * (1 - frac))); e.setAttribute('stroke-linecap', 'round'); } return e; };
+  svg.append(c('#1d1d21'), c('var(--accent)', left / total));
   const minutes = S.prefs.focusMinutes || 25;
-  const left = F.endsAt ? Math.max(0, (F.endsAt - Date.now()) / 1000) : F.pausedLeft ?? minutes * 60;
-  box.append(h('div', { class: `focus-time ${F.endsAt ? 'running' : ''}`, id: 'focus-time', text: fmtDur(left) }),
-    h('div', { class: 'row', style: 'justify-content:center' },
-      F.endsAt
-        ? h('button', { class: 'btn', text: 'Pause', onclick: () => { F = { pausedLeft: (F.endsAt - Date.now()) / 1000 }; focus.save(F); render(); } })
-        : h('button', { class: 'btn primary', text: F.pausedLeft ? 'Resume' : 'Start', onclick: () => { F = { endsAt: Date.now() + (F.pausedLeft ?? minutes * 60) * 1000 }; focus.save(F); render(); } }),
-      h('button', { class: 'btn', text: 'Reset', onclick: () => { F = {}; focus.save(F); render(); } }),
-      h('button', { class: 'btn', text: `${minutes}m`, title: 'Change length', onclick: () => {
-        const next = { 25: 50, 50: 15, 15: 5, 5: 25 }[minutes] || 25; F = {}; focus.save(F); act(() => pulse.setPrefs({ focusMinutes: next }));
-      } })));
+  page.append(h('div', { class: 'focus' },
+    h('div', { class: 'dial' }, svg, h('div', { class: 't', 'data-focus': true, text: fmt(left) })),
+    h('div', { class: 'focus-side' },
+      h('div', { style: 'font-size:18px;font-weight:800', text: F.endsAt ? 'Deep work' : F.pausedLeft ? 'Paused' : 'Ready when you are' }),
+      h('div', { class: 'row' },
+        F.endsAt ? h('button', { class: 'btn acc', onclick: focusPause }, icon('pause', 14), 'Pause')
+          : h('button', { class: 'btn acc', onclick: focusStart }, icon('play', 14), F.pausedLeft ? 'Resume' : 'Start'),
+        h('button', { class: 'btn', onclick: focusReset }, icon('reset', 14), 'Reset')),
+      h('div', { class: 'lens' }, [5, 15, 25, 50].map(n => h('button', { class: `len ${n === minutes ? 'on' : ''}`, text: `${n}m`,
+        onclick: () => { F = {}; store.set('focus', F); act(() => pulse.setPrefs({ focusMinutes: n })); } }))))));
+}
+
+// ======================= Tray =======================
+function renderTray() {
+  const ph = S.phone, files = S.prefs.shelf || [];
+  if (ph.on) {
+    page.append(h('div', { class: 'phone' },
+      h('div', { class: 'qr' }, h('img', { src: ph.qr, alt: 'QR code' })),
+      h('div', {},
+        h('div', { style: 'font-size:18px;font-weight:800', text: 'Scan with your phone' }),
+        h('div', { class: 'muted', text: 'Same Wi-Fi needed. Open the link from your camera.' }),
+        h('div', { class: 'steps2' },
+          h('div', { class: ph.connected ? 'ok' : '' }, h('i'), ph.connected ? 'Phone connected' : 'Waiting for your phone…'),
+          h('div', { class: ph.received ? 'ok' : '' }, h('i'), ph.received ? `${ph.received} file${ph.received > 1 ? 's' : ''} received (in Downloads\\Pulse)` : 'Drop files on the island to offer them to your phone')),
+        h('div', { class: 'row' }, h('span', { class: 'dim', style: 'font-size:12px', text: 'Local network only · stops after an hour' }),
+          h('button', { class: 'btn', style: 'margin-left:auto', text: 'Stop', onclick: () => act(() => pulse.phoneStop()) })))));
+    return;
+  }
+  if (!files.length) {
+    page.append(h('div', { class: 'tray-empty' },
+      h('div', { class: 'tray-icon' }, icon('tray', 46)),
+      h('div', {},
+        h('div', { style: 'font-size:18px;font-weight:800', text: 'Drop files here' }),
+        h('div', { class: 'muted', text: 'They wait here until you drag them out · double-click to open' }),
+        h('button', { class: 'pill-btn', onclick: () => act(() => pulse.phoneStart()) }, icon('phone', 15), 'Or swap files with your phone'))));
+    return;
+  }
+  page.classList.add('scroll');
+  page.append(h('div', { class: 'row', style: 'margin-bottom:8px' },
+    h('span', { class: 'muted grow', text: `${files.length} file${files.length > 1 ? 's' : ''} · drag out, double-click to open` }),
+    h('button', { class: 'pill-btn', style: 'margin:0', onclick: () => act(() => pulse.phoneStart()) }, icon('phone', 14), 'Phone'),
+    h('button', { class: 'link danger', text: 'Clear', onclick: () => act(() => pulse.shelfClear()) })),
+  h('div', { class: 'files' }, files.map(f => h('div', { class: 'ftile', draggable: 'true', title: f.path,
+    ondragstart: e => { e.preventDefault(); pulse.shelfDrag(f.path); }, ondblclick: () => pulse.shelfOpen(f.path), oncontextmenu: () => pulse.shelfReveal(f.path) },
+  icon('file', 28), h('span', { class: 'name', text: f.name }),
+  h('button', { class: 'x', title: 'Remove', onclick: e => { e.stopPropagation(); act(() => pulse.shelfRemove(f.path)); } }, icon('x', 11))))));
+}
+
+// ======================= Clipboard =======================
+function renderClipboard() {
+  page.classList.add('scroll');
+  if (!S.clipboard.length) { page.append(h('div', { class: 'empty', text: 'Text you copy shows up here. Click one to copy it again.' })); return; }
+  page.append(h('div', { class: 'clips' }, S.clipboard.map(c => {
+    const copied = copiedAt.text === c.text && Date.now() - copiedAt.at < 1500;
+    return h('button', { class: `clip ${copied ? 'copied' : ''}`, onclick: () => { pulse.copy(c.text); copiedAt = { text: c.text, at: Date.now() }; render(); setTimeout(render, 1600); } },
+      icon('lines', 14), h('span', { class: 'grow ellipsis', text: c.text.replace(/\s+/g, ' ') }), h('time', { text: copied ? 'Copied' : ago(c.at) }));
+  })), h('div', { style: 'padding:10px 6px' }, h('button', { class: 'link danger', text: 'Clear history', onclick: () => act(() => pulse.clearClipboard()) })));
+}
+
+// ======================= Note =======================
+let noteTimer;
+function saveNote(text) { clearTimeout(noteTimer); noteTimer = setTimeout(() => pulse.setPrefs({ note: text }), 300); S.prefs.note = text; }
+function renderNote() {
+  const text = S.prefs.note || '';
+  if (noteEditing) {
+    const ta = h('textarea', { id: 'note-edit', 'data-key': 'note', placeholder: 'Type… start a line with [ ] to make a checkbox' });
+    ta.value = text;
+    ta.addEventListener('input', () => saveNote(ta.value));
+    ta.addEventListener('blur', () => { noteEditing = false; render(); });
+    page.append(ta);
+    requestAnimationFrame(() => { if (document.activeElement !== ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } });
+    return;
+  }
+  const view = h('div', { class: 'note-view', onclick: () => { noteEditing = true; render(); } });
+  if (!text.trim()) view.append(h('div', { class: 'note-ph', text: 'Click to type' }), h('div', { class: 'dim', text: 'Saved automatically · [ ] at the start of a line makes a check circle' }));
+  text.split('\n').forEach((line, i) => {
+    if (!text.trim()) return;
+    const m = line.match(/^\s*\[( |x|X)\]\s?(.*)$/);
+    if (!m) { view.append(h('div', { class: 'note-line' }, h('span', { text: line || ' ' }))); return; }
+    const done = m[1] !== ' ';
+    view.append(h('div', { class: `note-line ${done ? 'done' : ''}` },
+      h('span', { class: `circle ${done ? 'done' : ''}`, onclick: e => {
+        e.stopPropagation();
+        const lines = text.split('\n'); lines[i] = line.replace(/\[( |x|X)\]/, done ? '[ ]' : '[x]');
+        saveNote(lines.join('\n')); render();
+      } }, done ? icon('check', 12) : null), h('span', { text: m[2] })));
+  });
+  page.append(view);
+}
+
+// ======================= Settings =======================
+function renderSettings() {
+  page.classList.add('scroll');
+  const p = S.prefs;
+  const toggle = (on, fn) => h('button', { class: `toggle ${on ? 'on' : ''}`, onclick: fn });
+  const row = (title, sub, ctl) => h('div', { class: 'set' }, h('div', { class: 'grow' }, h('b', { text: title }), sub ? h('span', { text: sub }) : null), ctl);
+  page.append(h('div', { class: 'settings' },
+    row('Claude Code', S.claude.connected ? `Connected · ${S.claude.statusLine === 'custom' ? 'your own status line is kept, so usage meters stay off' : 'hooks + status line in settings.json'}` : 'Not connected',
+      S.claude.connected ? h('button', { class: 'btn no', text: 'Disconnect', onclick: () => act(() => pulse.disconnect()) }) : h('button', { class: 'btn go', text: 'Connect', onclick: () => act(() => pulse.connect()) })),
+    row('Start with Windows', null, toggle(S.startWithWindows, () => act(() => pulse.setLogin(!S.startWithWindows)))),
+    row('Open on questions', 'Unfold when Claude asks for permission or input', toggle(p.autoOpen !== false, () => act(() => pulse.setPrefs({ autoOpen: p.autoOpen === false })))),
+    row('Sounds', 'A soft chime when Claude finishes or needs you', toggle(p.sound !== false, () => act(() => pulse.setPrefs({ sound: p.sound === false })))),
+    row('Windows notifications', 'Only when Pulse is not focused', toggle(p.notifications !== false, () => act(() => pulse.setPrefs({ notifications: p.notifications === false })))),
+    row('Shortcut', 'Ctrl+Alt+P unfolds the island · Esc folds it in · poke the eyes', null)));
+}
+
+// ======================= render =======================
+function render() {
+  if (!S) return;
+  renderPill();
+  updateEyes();
+  if (!open) return;
+  renderHeader();
+  renderNav();
+  renderMenu();
+  preserveFocus(() => {
+    renderAttention();
+    page.replaceChildren(); page.className = '';
+    const hasAsk = $('#attention').childElementCount > 0;
+    if (!hasAsk || current !== 'claude') ({ home: renderHome, claude: renderClaude, music: renderMusic, chat: renderChat, focus: renderFocus, tray: renderTray, clipboard: renderClipboard, note: renderNote, settings: renderSettings })[current]();
+    const base = 46 + 52 + 10;
+    const pageH = hasAsk && current === 'claude' ? 0 : pageOf(current).h;
+    island.style.setProperty('--open-h', `${Math.min(540, base + $('#attention').offsetHeight + pageH)}px`);
+  });
+  updateEyes();
+}
+
+// ---------- ticking bits (no full re-render) ----------
+function tickClock() {
+  const d = new Date();
+  const el = $('#clock'); if (!el) return;
+  el.replaceChildren(d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }), ' ', h('b', { text: d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }));
+}
+function tickUsage() {
+  const u = S?.hub.usage.fiveHour; if (!u) return;
+  const ms = resetMs(u.resetsAt);
+  $('#usage').textContent = ms ? `${u.used}% · ${fmt(ms / 1000)}` : `${u.used}%`;
 }
 function tickFocus() {
   if (!F.endsAt) return;
-  const left = (F.endsAt - Date.now()) / 1000;
-  const el = $('#focus-time'); if (el) el.textContent = fmtDur(left);
-  if (left <= 0) { F = {}; focus.save(F); chime('done'); new Notification('Focus session done', { body: 'Time for a break.', silent: true }); if (S) render(); }
+  const left = focusLeft();
+  for (const el of document.querySelectorAll('[data-focus], #pill-focus')) el.textContent = fmt(left);
+  const fg = $('#dial-fg'); if (fg) fg.setAttribute('stroke-dashoffset', String(490 * (1 - left / (F.total || focusLen()))));
+  if (left <= 0) { F = {}; store.set('focus', F); chime('focus'); new Notification('Focus session done', { body: 'Nice work. Take a short break.', silent: true }); render(); }
 }
-
-// ---------- Settings view ----------
-function renderSettings() {
-  const v = $('#view-settings'); v.replaceChildren();
-  const p = S.prefs;
-  const toggle = (key, title, sub, dflt = true) => h('div', { class: 'setting' },
-    h('div', { class: 'txt' }, h('b', { text: title }), h('span', { text: sub })),
-    h('button', { class: `toggle ${(p[key] ?? dflt) ? 'on' : ''}`, onclick: () => act(() => pulse.setPrefs({ [key]: !(p[key] ?? dflt) })) }));
-  v.append(
-    h('div', { class: 'setting' },
-      h('div', { class: 'txt' }, h('b', { text: 'Claude Code' }),
-        h('span', { text: S.claude.connected ? `Connected via ${S.claude.settingsFile}` : 'Not connected' }),
-        S.claude.statusLine === 'custom' ? h('span', { text: ' · You have your own status line, so usage meters stay off.' }) : null,
-        S.claude.error ? h('div', { class: 'error', text: S.claude.error }) : null),
-      S.claude.connected
-        ? h('button', { class: 'btn bad', text: 'Disconnect', onclick: () => act(() => pulse.disconnect()) })
-        : h('button', { class: 'btn primary', text: 'Connect', onclick: () => act(() => pulse.connect()) })),
-    toggle('autoOpen', 'Open on questions', 'Expand the island when Claude asks for permission or input'),
-    toggle('sound', 'Sounds', 'A short chime when Claude finishes or needs you'),
-    toggle('notifications', 'Windows notifications', 'When Pulse is not focused'),
-    h('div', { class: 'setting' },
-      h('div', { class: 'txt' }, h('b', { text: 'Accent colour' })),
-      h('div', { class: 'swatches' }, ['#7c5cff', '#4da3ff', '#3ddc84', '#ff6b9a', '#ffb020', '#e8e8f0'].map(c =>
-        h('button', { class: `swatch ${p.accent === c ? 'on' : ''}`, style: `background:${c}`, onclick: () => act(() => pulse.setPrefs({ accent: c })) })))),
-    h('div', { class: 'setting' },
-      h('div', { class: 'txt' }, h('b', { text: 'Shortcut' }), h('span', { text: 'Ctrl+Alt+P toggles the island · Esc collapses it' })),
-      h('button', { class: 'btn bad', text: 'Quit Pulse', onclick: () => pulse.quit() })));
-}
-
-// ---------- main render ----------
-function render() {
-  if (!S) return;
-  document.documentElement.style.setProperty('--accent', S.prefs.accent || '#7c5cff');
-  renderBar();
-  if (!open) return;
-  for (const b of document.querySelectorAll('#tabs [data-tab]')) b.classList.toggle('active', b.dataset.tab === tab);
-  for (const v of document.querySelectorAll('.view')) v.hidden = v.dataset.view !== tab;
-  preserveFocus(() => {
-    renderAttention();
-    if (lastError) $('#attention').prepend(h('div', { class: 'error', text: lastError }));
-    ({ claude: renderClaude, activity: renderActivity, media: renderMedia, tools: renderTools, settings: renderSettings })[tab]();
-  });
-}
+setInterval(() => {
+  for (const el of document.querySelectorAll('[data-tick]')) if (el.dataset.tick) el.textContent = fmt((Date.now() - Number(el.dataset.tick)) / 1000);
+  if (open) { tickClock(); tickUsage(); tickMedia(); }
+  tickFocus();
+  if (eyeMood() !== pillEyes.mood) updateEyes();
+}, 1000);
 
 pulse.onState(st => { S = st; render(); });
 pulse.state().then(st => { S = st; render(); });
-setInterval(() => {
-  for (const el of document.querySelectorAll('[data-tick]')) el.textContent = fmtDur((Date.now() - Number(el.dataset.tick)) / 1000);
-  tickMedia(); tickFocus();
-}, 1000);

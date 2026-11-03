@@ -58,8 +58,9 @@ function newSession(id) {
 }
 
 class Hub extends EventEmitter {
-  constructor({ token, history, port = PORT } = {}) {
+  constructor({ token, history, port = PORT, ignoreCwd = null } = {}) {
     super();
+    this.ignoreCwd = ignoreCwd ? path.resolve(ignoreCwd).toLowerCase() : null; // Pulse's own "Ask" sessions
     this.token = Buffer.from(String(token));
     this.port = port;
     this.history = history; // { add(entry) } or undefined
@@ -124,6 +125,7 @@ class Hub extends EventEmitter {
     const id = typeof ev.session_id === 'string' ? ev.session_id : '';
     const name = ev.hook_event_name;
     if (!id || !name) return false;
+    if (this.ignoreCwd && typeof ev.cwd === 'string' && path.resolve(ev.cwd).toLowerCase() === this.ignoreCwd) return false;
     this.lastHeard = Date.now();
 
     // Anything after a permission request (other than more pre-tool calls) means it was answered in the terminal.
@@ -264,7 +266,8 @@ class Hub extends EventEmitter {
   }
 
   #record(s, result) {
-    if (!this.history || !s.prompt) return;
+    // Prompts starting with "<" are Claude Code's own (e.g. <task-notification>), not something you asked.
+    if (!this.history || !s.prompt || s.prompt.startsWith('<')) return;
     this.history.add({ at: Date.now(), project: s.project, cwd: s.cwd, prompt: s.prompt, result,
       files: s.files.length, commands: s.commands.length, seconds: s.startedAt ? Math.round((Date.now() - s.startedAt) / 1000) : 0,
       summary: clip(s.lastMessage, 600) });
