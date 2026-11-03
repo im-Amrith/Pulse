@@ -1,7 +1,7 @@
 'use strict';
-// Pulse's eyes. Each instance renders two glowing eyes that blink, glance toward the cursor,
-// and change shape with the mood: idle, working, asking, finished (happy ^^), failed, sleepy.
-// Poke them a few times quickly and they get dizzy.
+// Pulse's face. Each instance renders two eyes with catchlights and a small mouth. They blink, glance toward
+// the cursor, and change with the mood: idle, working (scanning), asking (little "o"), finished (smile),
+// failed (frown, drooping), sleepy (half closed). Poke them a few times quickly and they get dizzy.
 /* exported Eyes */
 
 class Eyes {
@@ -15,7 +15,7 @@ class Eyes {
     this.music = false;
     this.pokes = [];
     root.classList.add('eyes');
-    root.innerHTML = '<span class="eye"><span class="ball"></span><span class="arc"></span></span><span class="eye"><span class="ball"></span><span class="arc"></span></span>';
+    root.innerHTML = '<span class="eye"><span class="ball"></span></span><span class="eye"><span class="ball"></span></span><span class="mouth"></span>';
     root.addEventListener('click', e => { if (root.dataset.pokeable != null) { e.stopPropagation(); this.poke(); } });
     Eyes.all.add(this);
     this.#scheduleBlink();

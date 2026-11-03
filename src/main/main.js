@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, Tray, Menu, ipcMain, globalShortcut, screen, shell, nativeImage, Notification, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, globalShortcut, screen, shell, nativeImage, Notification, desktopCapturer, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { Hub } = require('./hub');
@@ -11,6 +11,8 @@ const { SystemStatus } = require('./system');
 const { createAsk } = require('./ask');
 const { PhoneBridge } = require('./phone');
 const { Lyrics } = require('./lyrics');
+const { DownloadsWatcher } = require('./downloads');
+const { randomUUID } = require('node:crypto');
 const { iconPng } = require('./icon');
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
@@ -18,7 +20,7 @@ app.setAppUserModelId('com.amrithesh.pulse');
 
 // The window is a fixed transparent canvas hanging from the top edge; the island inside grows and shrinks.
 const WIDTH = 720, HEIGHT = 560;
-let win = null, tray = null, hub, claude, media, clips, sys, ask, phone, lyrics, prefs, history;
+let win = null, tray = null, hub, claude, media, clips, sys, ask, phone, lyrics, downloads, prefs, history;
 
 const userData = () => app.getPath('userData');
 const send = (channel, payload) => { if (win && !win.isDestroyed()) win.webContents.send(channel, payload); };
@@ -103,6 +105,38 @@ async function captureScreen() {
   } finally { win.setOpacity(1); }
 }
 
+// Reminders fire from here so they go off even while the island is folded away.
+function checkReminders() {
+  const list = prefs.get().reminders || [];
+  const now = Date.now();
+  let changed = false;
+  for (const r of list) {
+    if (r.done || r.fired || !(r.at <= now)) continue;
+    r.fired = true; changed = true;
+    send('reminder', r.id);
+    if (Notification.isSupported()) {
+      const n = new Notification({ title: 'Reminder', body: r.text, icon: nativeImage.createFromBuffer(iconPng(64)) });
+      n.on('click', () => send('island:open', 'plan'));
+      n.show();
+    }
+  }
+  if (changed) { prefs.set({ ...prefs.get(), reminders: list }); push(); }
+}
+
+// ---------- launcher pins ----------
+const pins = () => prefs.get().pins || [];
+const pinName = p => path.basename(p).replace(/\.(lnk|exe|url)$/i, '');
+function addPins(entries) {
+  const list = pins();
+  const fresh = entries.filter(e => e && !list.some(p => p.target === e.target)).map(e => ({ id: randomUUID(), ...e }));
+  prefs.set({ ...prefs.get(), pins: [...list, ...fresh].slice(0, 40) }); push();
+  return fresh.length;
+}
+function pinFromPath(p) {
+  let st; try { st = fs.statSync(p); } catch { return null; }
+  return { type: st.isDirectory() ? 'folder' : /\.(exe|lnk)$/i.test(p) ? 'app' : 'file', name: pinName(p), target: p };
+}
+
 function addToShelf(paths) {
   const files = shelf();
   const fresh = paths.filter(p => typeof p === 'string' && fs.existsSync(p) && !files.some(f => f.path === p))
@@ -163,6 +197,42 @@ function wireIpc() {
     if (!shelf().some(f => f.path === p) || !fs.existsSync(p)) return;
     e.sender.startDrag({ file: p, icon: nativeImage.createFromBuffer(iconPng(32)) });
   });
+  handle('pins:add-paths', paths => addPins(paths.filter(p => typeof p === 'string').map(pinFromPath)));
+  handle('pins:pick', async kind => {
+    const r = await dialog.showOpenDialog(win, kind === 'folder'
+      ? { title: 'Pin a folder', properties: ['openDirectory', 'multiSelections'] }
+      : { title: 'Pin an app or file', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Apps and files', extensions: ['*'] }] });
+    return r.canceled ? 0 : addPins(r.filePaths.map(pinFromPath));
+  });
+  handle('pins:add-url', (name, url) => {
+    let u; try { u = new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`); } catch { throw new Error('That doesn\'t look like a web address.'); }
+    if (!/^https?:$/.test(u.protocol)) throw new Error('Only http and https links can be pinned.');
+    return addPins([{ type: 'url', name: String(name || '').trim().slice(0, 40) || u.hostname.replace(/^www\./, ''), target: u.href }]);
+  });
+  handle('pins:set', list => { // rename / reorder / remove: only pins that already exist are kept
+    const byId = new Map(pins().map(p => [p.id, p]));
+    const next = (Array.isArray(list) ? list : []).filter(p => byId.has(p?.id)).map(p => ({ ...byId.get(p.id), name: String(p.name || byId.get(p.id).name).slice(0, 40) }));
+    prefs.set({ ...prefs.get(), pins: next }); push();
+  });
+  handle('pins:open', id => {
+    const p = pins().find(x => x.id === id);
+    if (!p) throw new Error('That pin no longer exists.');
+    if (p.type === 'url') return shell.openExternal(p.target);
+    if (!fs.existsSync(p.target)) throw new Error(`${p.name} was moved or deleted.`);
+    return shell.openPath(p.target).then(err => { if (err) throw new Error(err); });
+  });
+  const iconCache = new Map();
+  handle('pins:icons', async () => {
+    const out = {};
+    for (const p of pins()) {
+      if (p.type === 'url') continue;
+      if (!iconCache.has(p.target)) {
+        try { iconCache.set(p.target, (await app.getFileIcon(p.target, { size: 'large' })).toDataURL()); } catch { iconCache.set(p.target, ''); }
+      }
+      out[p.id] = iconCache.get(p.target);
+    }
+    return out;
+  });
   handle('phone:start', () => phone.start());
   handle('phone:stop', () => phone.stop());
 
@@ -181,6 +251,12 @@ app.whenReady().then(async () => {
   clips = new ClipboardHistory();
   sys = new SystemStatus();
   phone = new PhoneBridge({ getShelf: shelf, saveDir: path.join(app.getPath('downloads'), 'Pulse') });
+  downloads = new DownloadsWatcher(app.getPath('downloads'));
+  downloads.on('file', file => {
+    if (prefs.get().watchDownloads === false) return;
+    addToShelf([file]);
+    send('download', path.basename(file));
+  });
   lyrics = new Lyrics();
   lyrics.enabled = prefs.get().lyrics !== false;
   media.on('change', () => lyrics.update(media.state));
@@ -197,7 +273,11 @@ app.whenReady().then(async () => {
   createTray();
   trackCursor();
   await hub.start();
-  media.start(); clips.start(); sys.start();
+  media.start(); clips.start(); sys.start(); downloads.start();
+  // CPU / RAM go out on their own channel so the page isn't re-rendered every 2 seconds.
+  sys.on('stats', stats => send('stats', stats));
+  setInterval(checkReminders, 5000);
+  checkReminders();
 
   globalShortcut.register('Control+Alt+P', () => send('island:toggle'));
   screen.on('display-metrics-changed', place);
@@ -207,5 +287,5 @@ app.on('second-instance', () => send('island:open'));
 app.on('window-all-closed', e => e.preventDefault?.());
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
-  media?.stop(); clips?.stop(); sys?.stop(); phone?.stop(); ask?.cancel(); hub?.stop(); prefs?.flush(); history?.flush();
+  media?.stop(); clips?.stop(); sys?.stop(); downloads?.stop(); phone?.stop(); ask?.cancel(); hub?.stop(); prefs?.flush(); history?.flush();
 });

@@ -7,27 +7,37 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="island" class="pill" data-mood="idle">
-    <div id="pill">
-      <span id="pill-left"></span>
-      <span id="pill-lyric"></span>
-      <div id="pill-eyes" data-pokeable></div>
-      <span id="pill-right"></span>
+  <!-- #shell casts the shadow and mood glow; #island is one shape that morphs between capsule and card via clip-path -->
+  <div id="shell">
+    <div id="island" data-mood="idle">
+      <div id="pill">
+        <span id="pill-left"></span>
+        <span id="pill-lyric"></span>
+        <div id="pill-eyes" data-pokeable></div>
+        <span id="pill-right"></span>
+      </div>
+
+      <section id="panel">
+        <nav id="rail">
+          <div id="rail-eyes" data-pokeable title="Poke me"></div>
+          <div id="rail-pages"></div>
+        </nav>
+        <div id="main">
+          <header id="top">
+            <h1 id="title"></h1>
+            <svg id="trace" viewBox="0 0 400 30" preserveAspectRatio="none" aria-hidden="true"><path id="trace-path" d=""/></svg>
+            <div id="meta"><span id="stats" title="Processor and memory in use"></span><span id="usage" hidden></span><span id="clock"></span><button id="menu-btn" class="iconbtn" title="Menu"></button></div>
+          </header>
+          <div id="attention"></div>
+          <main id="page"></main>
+        </div>
+        <div id="menu" hidden></div>
+      </section>
     </div>
-    <section id="panel">
-      <header id="top">
-        <div id="title"></div>
-        <div id="center"><div id="head-eyes" class="mini" data-pokeable></div><span id="clock"></span></div>
-        <div id="right"><span id="usage" hidden></span><button id="menu-btn" class="iconbtn" title="Menu"></button></div>
-      </header>
-      <div id="attention"></div>
-      <main id="page"></main>
-      <nav id="nav"></nav>
-      <div id="menu" hidden></div>
-    </section>
   </div>
   <script src="icons.js"></script>
   <script src="eyes.js"></script>
+  <script src="when.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
