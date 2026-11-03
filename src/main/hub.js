@@ -3,6 +3,7 @@
 // keeps a live model of every session, and can hold a PermissionRequest open until
 // you answer it from the island.
 const http = require('node:http');
+const fs = require('node:fs');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
 const { timingSafeEqual } = require('node:crypto');
@@ -41,6 +42,16 @@ function describe(tool, input = {}) {
 const clip = (s, n) => { s = String(s ?? ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 const lines = (s, n, w = 100) => String(s ?? '').split(/\r?\n/).map(l => l.trimEnd()).filter(Boolean).slice(-n).map(l => clip(l, w));
 
+// Line number where an edit starts (PreToolUse runs before the edit, so the old text is still there).
+function startLine(file, oldText) {
+  if (!oldText) return 1;
+  try {
+    if (fs.statSync(file).size > 2_000_000) return null;
+    const body = fs.readFileSync(file, 'utf8'), at = body.indexOf(String(oldText));
+    return at < 0 ? null : body.slice(0, at).split('\n').length;
+  } catch { return null; }
+}
+
 // Does the final assistant message end by asking the user something?
 function endsWithQuestion(text) {
   const tail = String(text || '').trim().split(/\r?\n/).filter(l => l.trim()).slice(-2).join(' ');
@@ -52,6 +63,7 @@ function newSession(id) {
     id, state: 'idle', label: 'Ready', project: '', cwd: '', prompt: '', model: '',
     startedAt: 0, endedAt: 0, updatedAt: Date.now(), context: null,
     steps: [], files: [], commands: [], diff: null, output: null,
+    phase: 0, stepCount: 0, // phase: 0 exploring, 1 editing, 2 verifying (ran something after editing)
     pending: null, // { kind: 'tool'|'ask'|'plan', tool, detail, input, questions?, plan? }
     lastMessage: '', canReply: false,
   };
@@ -146,7 +158,7 @@ class Hub extends EventEmitter {
 
       case 'UserPromptSubmit':
         Object.assign(s, { state: 'working', label: 'Thinking', startedAt: now, endedAt: 0, pending: null,
-          steps: [], files: [], commands: [], diff: null, output: null, lastMessage: '', canReply: false,
+          steps: [], files: [], commands: [], diff: null, output: null, lastMessage: '', canReply: false, phase: 0, stepCount: 0,
           prompt: clip(String(ev.prompt || '').replace(/\s+/g, ' ').trim(), 280) });
         break;
 
@@ -158,12 +170,15 @@ class Hub extends EventEmitter {
         const { verb, target } = describe(tool, input);
         s.steps.push({ tool, kind: kindOf(tool), verb, target: clip(target, 120), status: 'running', at: now });
         if (s.steps.length > 15) s.steps.shift();
+        s.stepCount++;
+        if (kindOf(tool) === 'edit') s.phase = Math.max(s.phase, 1);
+        if (kindOf(tool) === 'run' && s.phase >= 1) s.phase = 2;
         const file = input.file_path ? path.basename(String(input.file_path)) : '';
         if (kindOf(tool) === 'edit' && file) {
           if (!s.files.includes(file)) s.files.push(file);
           const edit = Array.isArray(input.edits) ? input.edits[0] || {} : input;
           const before = lines(edit.old_string, 4, 90), after = lines(edit.new_string ?? edit.content, before.length ? 4 : 8, 90);
-          s.diff = { file, removed: before, added: after };
+          s.diff = { file, ext: path.extname(file).slice(1).toLowerCase(), start: startLine(input.file_path, edit.old_string), removed: before, added: after };
         }
         if (kindOf(tool) === 'run' && input.command) {
           s.commands.push(clip(input.command, 100));

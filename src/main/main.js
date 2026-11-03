@@ -10,6 +10,7 @@ const { ClipboardHistory } = require('./clipboard');
 const { SystemStatus } = require('./system');
 const { createAsk } = require('./ask');
 const { PhoneBridge } = require('./phone');
+const { Lyrics } = require('./lyrics');
 const { iconPng } = require('./icon');
 
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
@@ -17,7 +18,7 @@ app.setAppUserModelId('com.amrithesh.pulse');
 
 // The window is a fixed transparent canvas hanging from the top edge; the island inside grows and shrinks.
 const WIDTH = 720, HEIGHT = 560;
-let win = null, tray = null, hub, claude, media, clips, sys, ask, phone, prefs, history;
+let win = null, tray = null, hub, claude, media, clips, sys, ask, phone, lyrics, prefs, history;
 
 const userData = () => app.getPath('userData');
 const send = (channel, payload) => { if (win && !win.isDestroyed()) win.webContents.send(channel, payload); };
@@ -75,7 +76,7 @@ function createTray() {
 function state() {
   return {
     hub: hub.snapshot(), claude: { ...claude.status(), model: claude.getModel() },
-    media: media.state, volume: media.volume, system: sys.state, clipboard: clips.items,
+    media: media.state, volume: media.volume, lyrics: lyrics.current, system: sys.state, clipboard: clips.items,
     prefs: prefs.get(), history: history.list(), phone: phone.status(), askBusy: ask.busy(),
     startWithWindows: app.getLoginItemSettings().openAtLogin,
   };
@@ -137,7 +138,11 @@ function wireIpc() {
   handle('media', cmd => media.command(String(cmd)));
   handle('clip:copy', text => clips.copy(String(text)));
   handle('clip:clear', () => clips.clear());
-  handle('prefs:set', patch => { prefs.set({ ...prefs.get(), ...patch }); push(); return prefs.get(); });
+  handle('prefs:set', patch => {
+    prefs.set({ ...prefs.get(), ...patch });
+    if ('lyrics' in patch) { lyrics.enabled = patch.lyrics !== false; lyrics.key = ''; lyrics.update(media.state); }
+    push(); return prefs.get();
+  });
   handle('login:set', on => { app.setLoginItemSettings({ openAtLogin: Boolean(on) }); push(); });
 
   handle('ask', async ({ prompt, screen: withScreen }) => {
@@ -176,6 +181,10 @@ app.whenReady().then(async () => {
   clips = new ClipboardHistory();
   sys = new SystemStatus();
   phone = new PhoneBridge({ getShelf: shelf, saveDir: path.join(app.getPath('downloads'), 'Pulse') });
+  lyrics = new Lyrics();
+  lyrics.enabled = prefs.get().lyrics !== false;
+  media.on('change', () => lyrics.update(media.state));
+  lyrics.on('change', push);
 
   hub.on('change', push);
   hub.on('attention', s => { send('island:attention', s.id); notify(`${s.project || 'Claude Code'} needs you`, s.label); });

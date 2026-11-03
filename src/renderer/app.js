@@ -18,8 +18,8 @@ let copiedAt = { text: '', at: 0 };
 // ---------- pages ----------
 const PAGES = [
   { id: 'home', label: 'Home', icon: 'home', c: '#e6e6ea', title: ['', ''], h: 200 },
-  { id: 'claude', label: 'Claude', icon: 'spark', c: '#ff8c5a', title: ['Claude', 'Code'], h: 210 },
-  { id: 'music', label: 'Music', icon: 'music', c: '#ff3b5c', title: ['Music', 'Player'], h: 170 },
+  { id: 'claude', label: 'Claude', icon: 'spark', c: '#ff8c5a', title: ['Claude', 'Code'], h: 210, hWork: 222 },
+  { id: 'music', label: 'Music', icon: 'music', c: '#ff3b5c', title: ['Music', 'Player'], h: 170, hLyrics: 214 },
   { id: 'chat', label: 'Ask', icon: 'chat', c: '#34d07a', title: ['Ask', 'Pulse'], h: 250 },
   { id: 'focus', label: 'Focus', icon: 'timer', c: '#b56bff', title: ['Focus', 'Timer'], h: 200 },
   { id: 'tray', label: 'Tray', icon: 'tray', c: '#ffc533', title: ['File', 'Tray'], h: 190 },
@@ -105,23 +105,39 @@ $('#pill').addEventListener('click', () => setOpen(true, { focus: true }));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (menuOpen) { menuOpen = false; render(); } else setOpen(false); } });
 pulse.onOpen(to => setOpen(true, { focus: true, to: typeof to === 'string' ? to : undefined }));
 pulse.onToggle(() => setOpen(!open, { focus: true }));
-pulse.onBlur(() => { if (!S?.hub.sessions.some(s => s.holding) && !chat.busy) setOpen(false); });
+pulse.onBlur(() => { if (!hovering && !S?.hub.sessions.some(s => s.holding) && !chat.busy) setOpen(false); });
 pulse.onAttention(() => { if (S?.prefs.autoOpen !== false) setOpen(true, { to: 'claude' }); chime('ask'); });
 pulse.onFinished(kind => { chime(kind === 'failed' ? 'fail' : 'done'); });
 
-let hovering = false;
+// Hover to unfold, move away to fold. A short delay on both sides so passing the mouse over doesn't flicker it,
+// and it stays open while you're typing, using the menu, dragging files, or Claude is waiting for an answer.
+let hovering = false, hoverTimer = null;
+const HOVER_OPEN_MS = 160, HOVER_CLOSE_MS = 420;
+function keepOpen() {
+  const typing = document.hasFocus() && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) && island.contains(document.activeElement);
+  return typing || menuOpen || dragDepth > 0 || chat.busy || S?.hub.sessions.some(s => s.holding);
+}
+function onHover(over) {
+  clearTimeout(hoverTimer);
+  if (over && !open) hoverTimer = setTimeout(() => setOpen(true), HOVER_OPEN_MS);
+  if (!over && open) hoverTimer = setTimeout(() => { if (!hovering && !keepOpen()) setOpen(false); }, HOVER_CLOSE_MS);
+}
 document.addEventListener('mousemove', e => {
   const over = island.contains(e.target);
-  if (over !== hovering) { hovering = over; pulse.interactive(over || open); }
+  if (over !== hovering) { hovering = over; pulse.interactive(over || open); onHover(over); }
 });
-document.addEventListener('mouseleave', () => { if (hovering) { hovering = false; pulse.interactive(open); } });
+document.addEventListener('mouseleave', () => { if (hovering) { hovering = false; pulse.interactive(open); onHover(false); } });
 
 // Dropping files anywhere on the island parks them in the tray.
 let dragDepth = 0;
 document.addEventListener('dragenter', e => { if (!e.dataTransfer?.types.includes('Files')) return; e.preventDefault(); dragDepth++; island.classList.add('dropping'); if (!open) setOpen(true, { to: 'tray' }); else if (current !== 'tray') { current = 'tray'; render(); } });
 document.addEventListener('dragover', e => e.preventDefault());
 document.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; island.classList.remove('dropping'); } });
-document.addEventListener('drop', e => { e.preventDefault(); dragDepth = 0; island.classList.remove('dropping'); if (e.dataTransfer.files.length) act(() => pulse.shelfAdd(e.dataTransfer.files)); });
+document.addEventListener('drop', e => {
+  e.preventDefault(); dragDepth = 0; island.classList.remove('dropping');
+  const paths = Array.from(e.dataTransfer.files, f => pulse.pathFor(f)).filter(Boolean);
+  if (paths.length) act(() => pulse.shelfAdd(paths));
+});
 
 // ---------- sound ----------
 let audio;
@@ -148,6 +164,42 @@ function focusStart() { F = { endsAt: Date.now() + focusLeft() * 1000, total: F.
 function focusPause() { F = { pausedLeft: focusLeft(), total: F.total }; store.set('focus', F); render(); }
 function focusReset() { F = {}; store.set('focus', F); render(); }
 
+// ======================= music position + lyrics =======================
+// The player reports a position at a moment (updatedAt); between reports we extrapolate.
+function mediaPos() {
+  const m = S?.media; if (!m?.active) return 0;
+  const base = m.updatedAt > 0 ? Math.min(m.updatedAt, Date.now()) : Date.now();
+  const pos = (m.position || 0) + (m.playing ? (Date.now() - base) / 1000 : 0);
+  return m.duration ? Math.min(m.duration, pos) : pos;
+}
+const LYRIC_LEAD = 0.25; // show a line a hair early, it feels more in sync
+function lyricLines() {
+  const m = S?.media, l = S?.lyrics;
+  if (!m?.active || !l || l.key !== `${m.artist}\u0000${m.title}`) return null;
+  return l.lines;
+}
+function lyricAt(lines, pos) {
+  let i = -1;
+  for (let k = 0; k < lines.length; k++) { if (lines[k].t <= pos + LYRIC_LEAD) i = k; else break; }
+  return { now: i >= 0 ? lines[i].text : '', next: lines[i + 1]?.text || '', i };
+}
+const showLyricsInPill = () => S && S.prefs.lyrics !== false && S.media.playing && lyricLines() && !open;
+let lastLyric = -2;
+function tickLyrics() {
+  const lines = lyricLines(); if (!lines) return;
+  const { now, next, i } = lyricAt(lines, mediaPos());
+  const pl = $('#pill-lyric');
+  if (pl && i !== lastLyric) {
+    lastLyric = i;
+    const old = pl.firstChild;
+    if (old) { old.classList.add('out'); setTimeout(() => old.remove(), 250); }
+    pl.append(h('span', { text: now || '♪' }));
+  }
+  const ln = $('#lyr-now'), lx = $('#lyr-next');
+  if (ln && ln.textContent !== (now || '♪')) ln.textContent = now || '♪';
+  if (lx && lx.textContent !== next) lx.textContent = next;
+}
+
 // ======================= collapsed pill =======================
 function renderPill() {
   const { hub, media } = S;
@@ -155,9 +207,10 @@ function renderPill() {
   island.dataset.mood = hub.mood;
   const left = $('#pill-left'), right = $('#pill-right');
   left.replaceChildren(); right.replaceChildren();
-  let wide = true;
+  let wide = true, lyrics = false;
   if (top && top.state === 'working') {
-    left.append(icon('spark', 15)); left.firstChild.classList.add('spin');
+    const verb = top.steps.at(-1)?.status === 'running' ? top.steps.at(-1).verb : 'Thinking';
+    left.append(h('span', { class: 'spin' }, icon('spark', 16)), h('span', { class: 'pill-label', text: verb }));
     right.append(h('span', { 'data-tick': top.startedAt, text: fmt((Date.now() - top.startedAt) / 1000) }));
   } else if (top && top.state === 'asking') {
     left.append(h('span', { style: 'color:var(--asking)', text: '●' }));
@@ -172,10 +225,14 @@ function renderPill() {
     left.append(h('span', { style: 'color:#b56bff' }, icon('timer', 15)));
     right.append(h('span', { id: 'pill-focus', style: 'color:#c99bff', text: fmt(focusLeft()) }));
   } else if (media.active && media.playing) {
-    left.append(h('span', { class: 'pill-art', style: media.art ? `background-image:url("${media.art.replace(/"/g, '')}")` : '' }));
+    left.append(media.art ? h('span', { class: 'pill-art', style: `background-image:url("${media.art.replace(/"/g, '')}")` })
+      : h('span', { class: 'pill-art', style: 'display:grid;place-items:center;color:#ff3b5c' }, icon('music', 13)));
     right.append(h('span', { class: 'eq on' }, h('i'), h('i'), h('i')));
+    lyrics = Boolean(showLyricsInPill());
   } else wide = false;
-  island.classList.toggle('wide', wide);
+  island.classList.toggle('wide', wide && !lyrics);
+  island.classList.toggle('lyrics', lyrics);
+  if (!lyrics) { $('#pill-lyric').replaceChildren(); lastLyric = -2; } else tickLyrics();
 }
 
 // ======================= header / nav / menu =======================
@@ -323,6 +380,7 @@ function renderClaude() {
     return;
   }
   const top = S.hub.sessions.find(s => s.state !== 'idle');
+  if (top && top.state === 'working') { renderWork(top); return; }
   const left = h('div', { class: 'claude-left' }, h('div', { class: 'brand' }, h('span', { class: 'logo' }, icon('spark', 15)), top ? top.project || 'Claude Code' : 'Claude Code',
     top ? h('span', { class: 'muted', style: 'font-weight:600;margin-left:auto', 'data-tick': top.endedAt ? null : top.startedAt, text: top.startedAt ? fmt(((top.endedAt || Date.now()) - top.startedAt) / 1000) : '' }) : null));
   if (!top) {
@@ -359,6 +417,50 @@ function renderClaude() {
   page.append(h('div', { class: 'claude' }, left,
     h('div', { style: 'display:grid;grid-template-rows:1fr auto;gap:10px;min-height:0' }, recentBox(), h('label', { class: 'model' }, 'Model', model))));
 }
+// While Claude works: big timer, what it's doing, how far along, and the code it's touching.
+const DOING = { read: 'Reading the code', search: 'Looking around', edit: 'Making changes', run: 'Running commands', web: 'Checking the web', agent: 'Delegating', mcp: 'Using tools' };
+const EXT = { js: ['JS', '#f7df1e', '#1a1600'], jsx: ['JSX', '#61dafb', '#00222b'], ts: ['TS', '#3178c6', '#fff'], tsx: ['TSX', '#3178c6', '#fff'],
+  py: ['PY', '#3776ab', '#fff'], css: ['CSS', '#2965f1', '#fff'], html: ['HTML', '#e34c26', '#fff'], json: ['{ }', '#8bc34a', '#102000'],
+  md: ['MD', '#9a9aa2', '#111'], ps1: ['PS', '#2b6cb0', '#fff'], cjs: ['JS', '#f7df1e', '#1a1600'], mjs: ['JS', '#f7df1e', '#1a1600'] };
+function renderWork(s) {
+  const last = s.steps.at(-1);
+  const doing = DOING[last?.kind] || 'Thinking';
+  const phase = s.phase ?? 0;
+  const phases = ['Explore', 'Edit', 'Verify', 'Done'].map((name, i) =>
+    h('div', { class: `ph ${i < phase ? 'full' : i === phase ? 'now' : ''}` }, h('i'), h('span', { text: name })));
+
+  let card;
+  if (last?.kind === 'run' && s.output) {
+    card = h('div', { class: 'code' },
+      h('div', { class: 'code-head' }, h('span', { class: 'badge', style: 'background:#2b2b31;color:#ddd' }, '>_'), h('b', { class: 'ellipsis', text: 'Terminal' }), h('span', { class: 'muted', text: s.output.tail.length ? (s.output.failed ? 'failed' : 'finished') : 'running' })),
+      h('div', { class: 'ln cmd' }, h('em', { text: '$' }), h('span', { text: s.output.command })),
+      s.output.tail.slice(-3).map(l => h('div', { class: `ln ${s.output.failed ? 'del' : 'out'}` }, h('em', { text: '' }), h('span', { text: l }))));
+  } else if (s.diff) {
+    const [label, bg, fg] = EXT[s.diff.ext] || [s.diff.ext.slice(0, 3).toUpperCase() || '•', '#3a3a42', '#eee'];
+    const start = s.diff.start ?? null;
+    const row = (cls, sign, text, n) => h('div', { class: `ln ${cls}` }, h('em', { text: n == null ? '' : String(n) }), h('i', { text: sign }), h('span', { text }));
+    const removed = s.diff.removed.slice(0, 3), added = s.diff.added.slice(0, removed.length ? 3 : 4);
+    card = h('div', { class: 'code' },
+      h('div', { class: 'code-head' }, h('span', { class: 'badge', style: `background:${bg};color:${fg}`, text: label }), h('b', { class: 'ellipsis', text: s.diff.file }),
+        h('span', { class: 'muted', text: last?.kind === 'edit' && last.status === 'running' ? 'being edited' : 'edited' })),
+      removed.map((l, i) => row('del', '−', l, start == null ? null : start + i)),
+      added.map((l, i) => row('add', '+', l, start == null ? null : start + i)));
+  } else {
+    card = h('div', { class: 'code' },
+      h('div', { class: 'code-head' }, h('span', { class: 'badge', style: 'background:#2b2b31;color:#ddd' }, icon(last?.kind === 'search' ? 'globe' : 'file', 13)), h('b', { text: last?.verb || 'Thinking' })),
+      h('div', { class: 'ln out' }, h('em', { text: '' }), h('span', { text: last?.target || (s.prompt ? `“${s.prompt}”` : 'Working out a plan…') })));
+  }
+
+  page.append(h('div', { class: 'work' },
+    h('div', { class: 'work-left' },
+      h('div', { class: 'brand' }, h('span', { class: 'logo' }, icon('spark', 15)), s.project || 'Claude Code'),
+      h('div', { class: 'timer', 'data-tick': s.startedAt, text: fmt((Date.now() - s.startedAt) / 1000) }),
+      h('div', { class: 'doing' }, doing, h('span', { class: 'muted', text: ` · step ${s.stepCount || s.steps.length || 1}` })),
+      s.prompt ? h('div', { class: 'live-prompt ellipsis', text: `“${s.prompt}”` }) : null),
+    card,
+    h('div', { class: 'phases' }, phases)));
+}
+
 function recentBox() {
   const items = S.history.slice(0, 4);
   return h('div', { class: 'recent' }, h('h4', { text: 'RECENTLY' }),
@@ -370,11 +472,10 @@ function recentBox() {
 }
 
 // ======================= Music =======================
-let mediaBase = { at: 0, pos: 0 };
 function renderMusic() {
   const m = S.media;
   const app = String(m.app || '').replace(/\.exe$/i, '').split(/[!.\\]/).filter(Boolean).pop() || 'This PC';
-  if (m.active) mediaBase = { at: m.updatedAt > 0 ? Math.min(m.updatedAt, Date.now()) : Date.now(), pos: m.position || 0 };
+  const lines = S.prefs.lyrics !== false ? lyricLines() : null;
   const bar = h('div', { class: 'bar', onclick: e => { if (!m.duration) return; const r = e.currentTarget.getBoundingClientRect(); pulse.media(`seek ${Math.round(((e.clientX - r.left) / r.width) * m.duration)}`); } }, h('i', { id: 'm-fill', style: 'width:0' }));
   page.append(h('div', { class: 'music' },
     h('div', { class: 'track' },
@@ -383,17 +484,18 @@ function renderMusic() {
         h('div', { class: 'ttl ellipsis', text: m.active ? m.title || 'Unknown' : 'Nothing is playing' }),
         h('div', { class: 'muted ellipsis', text: m.active ? m.artist || '' : 'Start music in Spotify, a browser or any player.' })),
       h('div', { class: `eq ${m.active && m.playing ? 'on' : ''}` }, ...Array.from({ length: 6 }, () => h('i')))),
+    lines ? h('div', { class: 'lyr' }, h('div', { class: 'now', id: 'lyr-now', text: '♪' }), h('div', { class: 'next', id: 'lyr-next' })) : null,
     h('div', { class: 'prog' }, h('span', { id: 'm-pos', text: '0:00' }), bar, h('span', { text: fmt(m.duration || 0) })),
     h('div', { class: 'ctrls' },
       h('button', { title: 'Previous', onclick: () => pulse.media('prev') }, icon('prev', 24)),
       h('button', { title: 'Play / pause', onclick: () => pulse.media('toggle') }, icon(m.active && m.playing ? 'pause' : 'play', 30)),
       h('button', { title: 'Next', onclick: () => pulse.media('next') }, icon('next', 24)),
       h('span', { class: 'src' }, icon('laptop', 14), app))));
-  tickMedia();
+  tickMedia(); tickLyrics();
 }
 function tickMedia() {
   const m = S?.media; if (!m?.active || !m.duration) return;
-  const pos = Math.min(m.duration, mediaBase.pos + (m.playing ? (Date.now() - mediaBase.at) / 1000 : 0));
+  const pos = mediaPos();
   const f = $('#m-fill'), l = $('#m-pos');
   if (f) f.style.width = `${(pos / m.duration) * 100}%`;
   if (l) l.textContent = fmt(pos);
@@ -511,17 +613,25 @@ function renderClipboard() {
 }
 
 // ======================= Note =======================
-let noteTimer;
-function saveNote(text) { clearTimeout(noteTimer); noteTimer = setTimeout(() => pulse.setPrefs({ note: text }), 300); S.prefs.note = text; }
+// The note text lives here; state pushes from main may briefly carry an older copy while a save is pending.
+let noteTimer, noteText = null;
+function saveNote(text) { noteText = text; clearTimeout(noteTimer); noteTimer = setTimeout(() => pulse.setPrefs({ note: text }), 300); }
+// One editor element for the whole session. While you type, render() leaves the Note page alone
+// (see render), so background updates (clipboard, music, Claude) can't steal the cursor.
+const noteTa = h('textarea', { id: 'note-edit', placeholder: 'Type… start a line with [ ] to make a checkbox' });
+noteTa.addEventListener('input', () => saveNote(noteTa.value));
+// Deferred: removing the focused editor (switching page) fires blur in the middle of a render.
+noteTa.addEventListener('blur', () => setTimeout(() => {
+  if (!document.hasFocus() || !noteEditing || current !== 'note') return;
+  noteEditing = false; render();
+}, 0));
 function renderNote() {
-  const text = S.prefs.note || '';
+  noteText ??= S.prefs.note || '';
+  const text = noteText;
   if (noteEditing) {
-    const ta = h('textarea', { id: 'note-edit', 'data-key': 'note', placeholder: 'Type… start a line with [ ] to make a checkbox' });
-    ta.value = text;
-    ta.addEventListener('input', () => saveNote(ta.value));
-    ta.addEventListener('blur', () => { noteEditing = false; render(); });
-    page.append(ta);
-    requestAnimationFrame(() => { if (document.activeElement !== ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } });
+    noteTa.value = text;
+    page.append(noteTa);
+    requestAnimationFrame(() => { noteTa.focus(); noteTa.setSelectionRange(noteTa.value.length, noteTa.value.length); });
     return;
   }
   const view = h('div', { class: 'note-view', onclick: () => { noteEditing = true; render(); } });
@@ -553,6 +663,7 @@ function renderSettings() {
     row('Start with Windows', null, toggle(S.startWithWindows, () => act(() => pulse.setLogin(!S.startWithWindows)))),
     row('Open on questions', 'Unfold when Claude asks for permission or input', toggle(p.autoOpen !== false, () => act(() => pulse.setPrefs({ autoOpen: p.autoOpen === false })))),
     row('Sounds', 'A soft chime when Claude finishes or needs you', toggle(p.sound !== false, () => act(() => pulse.setPrefs({ sound: p.sound === false })))),
+    row('Lyrics', 'Synced lyrics in the island · looks songs up on lrclib.net', toggle(p.lyrics !== false, () => act(() => pulse.setPrefs({ lyrics: p.lyrics === false })))),
     row('Windows notifications', 'Only when Pulse is not focused', toggle(p.notifications !== false, () => act(() => pulse.setPrefs({ notifications: p.notifications === false })))),
     row('Shortcut', 'Ctrl+Alt+P unfolds the island · Esc folds it in · poke the eyes', null)));
 }
@@ -566,13 +677,17 @@ function render() {
   renderHeader();
   renderNav();
   renderMenu();
+  if (current !== 'note') noteEditing = false;
+  if (current === 'note' && noteEditing && page.contains(noteTa)) { renderAttention(); return; } // never interrupt typing
   preserveFocus(() => {
     renderAttention();
     page.replaceChildren(); page.className = '';
     const hasAsk = $('#attention').childElementCount > 0;
     if (!hasAsk || current !== 'claude') ({ home: renderHome, claude: renderClaude, music: renderMusic, chat: renderChat, focus: renderFocus, tray: renderTray, clipboard: renderClipboard, note: renderNote, settings: renderSettings })[current]();
+    island.classList.toggle('warm', Boolean(page.querySelector('.work')));
     const base = 46 + 52 + 10;
-    const pageH = hasAsk && current === 'claude' ? 0 : pageOf(current).h;
+    const pg = pageOf(current);
+    const pageH = hasAsk && current === 'claude' ? 0 : current === 'music' && page.querySelector('.lyr') ? pg.hLyrics : current === 'claude' && page.querySelector('.work') ? pg.hWork : pg.h;
     island.style.setProperty('--open-h', `${Math.min(540, base + $('#attention').offsetHeight + pageH)}px`);
   });
   updateEyes();
@@ -600,8 +715,10 @@ setInterval(() => {
   for (const el of document.querySelectorAll('[data-tick]')) if (el.dataset.tick) el.textContent = fmt((Date.now() - Number(el.dataset.tick)) / 1000);
   if (open) { tickClock(); tickUsage(); tickMedia(); }
   tickFocus();
+  if (S && !open && island.classList.contains('lyrics') !== Boolean(showLyricsInPill())) renderPill();
   if (eyeMood() !== pillEyes.mood) updateEyes();
 }, 1000);
 
+setInterval(() => { if (S?.media.playing) tickLyrics(); }, 200); // lyric lines change faster than once a second
 pulse.onState(st => { S = st; render(); });
 pulse.state().then(st => { S = st; render(); });

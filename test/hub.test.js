@@ -42,7 +42,8 @@ test('tracks a turn: prompt, tool steps, diff, finish into history', async () =>
     let s = hub.snapshot().sessions[0];
     assert.equal(s.state, 'working');
     assert.equal(s.project, 'shop');
-    assert.deepEqual(s.diff, { file: 'cart.js', removed: ['a'], added: ['b'] });
+    assert.deepEqual(s.diff, { file: 'cart.js', ext: 'js', start: null, removed: ['a'], added: ['b'] }); // file doesn't exist: line unknown
+    assert.equal(s.phase, 1);
     await post(p, '/pulse/hook', { ...base, hook_event_name: 'PostToolUse', tool_name: 'Edit', tool_response: {} });
     await post(p, '/pulse/hook', { ...base, hook_event_name: 'Stop', last_assistant_message: 'All fixed.' });
     s = hub.snapshot().sessions[0];
@@ -124,6 +125,24 @@ test('parses netsh wlan output', () => {
   const { parseWlan } = require('../src/main/system');
   assert.deepEqual(parseWlan('    State                  : connected\n    SSID                   : Home\n    Signal                 : 88%\n'), { wifi: 'on', ssid: 'Home', signal: 88 });
   assert.deepEqual(parseWlan(''), { wifi: 'none' });
+});
+
+test('lyrics: parses LRC, cleans titles, looks up once per song', async () => {
+  const { Lyrics, parseLrc, cleanTitle, cleanArtist } = require('../src/main/lyrics');
+  assert.deepEqual(parseLrc('[00:01.50] first line\n[00:04.00]second line\nno stamp\n[01:00.00] later'),
+    [{ t: 1.5, text: 'first line' }, { t: 4, text: 'second line' }, { t: 60, text: 'later' }]);
+  assert.equal(cleanTitle('Song Name - Remastered 2011'), 'Song Name');
+  assert.equal(cleanTitle('Song Name (feat. Someone)'), 'Song Name');
+  assert.equal(cleanArtist('Artist A, Artist B'), 'Artist A');
+
+  const calls = [];
+  const fakeFetch = async url => { calls.push(url); return { ok: true, json: async () => ({ syncedLyrics: '[00:02.00] made-up test line' }) }; };
+  const ly = new Lyrics({ fetchImpl: fakeFetch });
+  await ly.update({ active: true, title: 'Test Song', artist: 'Test Artist', duration: 180 });
+  assert.equal(ly.current.lines[0].text, 'made-up test line');
+  await ly.update({ active: true, title: 'Test Song', artist: 'Test Artist', duration: 180, position: 30 });
+  assert.equal(calls.length, 1, 'same song is not looked up again');
+  assert.match(calls[0], /track_name=Test\+Song&artist_name=Test\+Artist&duration=180/);
 });
 
 test('endsWithQuestion', () => {

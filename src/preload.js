@@ -42,7 +42,9 @@ contextBridge.exposeInMainWorld('pulse', {
   ask: (prompt, screen) => call('ask', { prompt, screen }),
   cancelAsk: () => call('ask:cancel'),
 
-  shelfAdd: files => call('shelf:add', [...files].map(f => webUtils.getPathForFile(f)).filter(Boolean)),
+  // A FileList can't cross the context bridge, but single File objects can: the page maps each one through pathFor.
+  pathFor: file => webUtils.getPathForFile(file),
+  shelfAdd: paths => call('shelf:add', paths),
   shelfRemove: p => call('shelf:remove', p),
   shelfClear: () => call('shelf:clear'),
   shelfOpen: p => call('shelf:open', p),
