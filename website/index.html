@@ -46,6 +46,11 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 /* the 3D stage lives behind the page */
 /* opacity is driven from the render loop (it fades with the capsule's pose), so no CSS transition here */
 #gl { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0; }
+/* the moving field of beads under the sphere (hero only; fades out as you scroll on).
+   Screen blending drops the video's black, so only the beads show on the page colour. */
+.field { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.field video { position: absolute; left: 33vw; top: 56%; width: 76vw; aspect-ratio: 16 / 9; translate: 0 -50%; object-fit: cover; opacity: .85; mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(closest-side, #000 62%, transparent); mask-image: radial-gradient(closest-side, #000 62%, transparent); }
 main, header.nav, footer { position: relative; z-index: 2; }
 
 /* ---------- nav ---------- */
@@ -135,11 +140,14 @@ html.no-gl .hero-fallback { display: block; }
 .demo-steps button[aria-current="step"]::before { width: 100%; transition: width var(--step-ms, 2.8s) linear; }
 .demo-steps button:hover { color: var(--paper); }
 
-/* a light CSS capsule: the phone stand-in for the 3D one */
-.css-pill { display: none; position: relative; width: 210px; height: 62px; margin: 0 0 28px; border-radius: 31px;
-  background: radial-gradient(90% 120% at 50% 0%, #1d2140, #080a16 70%); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 0 0 1px rgba(169,174,203,.16), 0 0 46px color-mix(in srgb, var(--accent) 38%, transparent);
-  align-items: center; justify-content: center; gap: 18px; }
-.css-pill i { width: 13px; height: 19px; border-radius: 50%; background: #eef0ff; box-shadow: 0 0 14px var(--accent), 0 0 4px #fff; animation: blink 4.6s infinite; }
+/* a light CSS sphere: the phone stand-in for the 3D one (black gloss, a highlight, a rim of the theme colour) */
+.css-pill { display: none; position: relative; width: 150px; height: 150px; margin: 0 0 30px; border-radius: 50%;
+  background: radial-gradient(circle at 33% 25%, rgba(255,255,255,.7) 0 2.5%, rgba(255,255,255,.12) 7%, transparent 20%),
+              radial-gradient(circle at 50% 115%, color-mix(in srgb, var(--accent) 40%, transparent), transparent 55%),
+              radial-gradient(circle at 42% 38%, #1b1d2b, #030307 72%);
+  box-shadow: inset 0 0 0 1px rgba(169,174,203,.12), 0 0 60px color-mix(in srgb, var(--accent) 28%, transparent);
+  align-items: center; justify-content: center; gap: 16px; }
+.css-pill i { width: 12px; height: 36px; border-radius: 8px; background: #eef0ff; box-shadow: 0 0 16px var(--accent), 0 0 4px #fff; animation: blink 4.6s infinite; }
 @keyframes blink { 0%, 46%, 50%, 100% { transform: scaleY(1); } 48% { transform: scaleY(.1); } }
 
 /* ---------- pinned stage ---------- */
@@ -239,6 +247,7 @@ footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
   .nav-links { display: none; }
   /* phones and small tablets: no 3D, no pinned stage; the demo is the visual */
   #gl, .stage, .scroll-cue { display: none !important; }
+  .field { display: none; }
   .hero { grid-template-columns: 1fr; min-height: auto; align-content: start; padding: 112px var(--gutter) 28px; }
   .hero h1 { font-size: clamp(52px, 15vw, 84px); }
   .hero p.lede { font-size: 17px; margin-top: 20px; }
@@ -277,6 +286,7 @@ footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
 </head>
 <body>
 <div class="grain" aria-hidden="true"></div>
+<div class="field" aria-hidden="true"><video data-src="assets/field.mp4" poster="assets/field.jpg" muted loop playsinline preload="auto"></video></div>
 <canvas id="gl" aria-hidden="true"></canvas>
 
 <header class="nav">
@@ -566,7 +576,7 @@ function buildScene() {
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.22; // a dim studio: the body stays ink-dark, only the coat catches light
+  scene.environmentIntensity = 0.32; // a dim studio: the body stays black, the coat reflects the room
   pmrem.dispose();
   const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
   camera.position.set(0, 0, 9);
@@ -574,61 +584,49 @@ function buildScene() {
   // rim lights in the brand colour give the glossy body its edge; a soft light follows the cursor
   const rimA = new THREE.PointLight(0x8d9bff, 14, 12); rimA.position.set(-3, 2.2, -1.5); scene.add(rimA);
   const rimB = new THREE.PointLight(0x8d9bff, 6, 12); rimB.position.set(3.2, -1.6, 1.2); scene.add(rimB);
-  const key = new THREE.DirectionalLight(0xffffff, 0.35); key.position.set(1.5, 3, 5); scene.add(key);
+  const key = new THREE.DirectionalLight(0xffffff, 1.3); key.position.set(-2.5, 3.5, 4); scene.add(key);
   const cursorLight = new THREE.PointLight(0xeef0ff, 0, 7, 2); cursorLight.position.set(0, 0, 3); scene.add(cursorLight);
 
-  // rig (scroll pose) > head (turns toward you) > the capsule and its face
+  // rig (scroll pose) > head (turns toward you) > the sphere and its face
   const rig = new THREE.Group(); scene.add(rig);
   const head = new THREE.Group(); rig.add(head);
   const glowTex = glowTexture();
 
-  // a faint aura behind and a soft shadow below make it float in the void
+  // a faint aura behind and a soft shadow below make it float above the field
   const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x8d9bff, transparent: true, opacity: 0.1, depthWrite: false, blending: THREE.AdditiveBlending }));
-  aura.scale.set(5.2, 2.2, 1); aura.position.set(0, 0, -0.9); rig.add(aura);
+  aura.scale.set(3.8, 3.8, 1); aura.position.set(0, 0, -1.3); rig.add(aura);
   const shadowTex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d');
     const r = g.createRadialGradient(128, 32, 0, 128, 32, 128); r.addColorStop(0, 'rgba(0,0,0,.7)'); r.addColorStop(1, 'rgba(0,0,0,0)');
     g.setTransform(1, 0, 0, 0.25, 0, 24); g.fillStyle = r; g.fillRect(0, 0, 256, 256); return new THREE.CanvasTexture(c); })();
   const shadow = new THREE.Sprite(new THREE.SpriteMaterial({ map: shadowTex, transparent: true, opacity: 0.55, depthWrite: false }));
-  shadow.scale.set(3.4, 0.55, 1); shadow.position.set(0, -0.92, -0.3); rig.add(shadow);
+  shadow.scale.set(2.4, 0.42, 1); shadow.position.set(0, -1.22, -0.3); rig.add(shadow);
 
-  // body: a horizontal capsule like the app's island, in near-black lacquer
-  const R = 0.46, L = 2.3;
-  const bodyMat = new THREE.MeshPhysicalMaterial({ color: 0x070915, roughness: 0.55, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.06,
-    sheen: 0.35, sheenRoughness: 0.35, sheenColor: new THREE.Color(0x8d9bff), envMapIntensity: 0.18 });
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(R, L, 24, 64), bodyMat);
-  body.rotation.z = Math.PI / 2;
+  // body: a black glossy sphere. All of its shine comes from the lights and the studio reflections,
+  // so highlights slide over it as it turns and as the cursor light moves.
+  const R = 0.95;
+  const bodyMat = new THREE.MeshPhysicalMaterial({ color: 0x020206, roughness: 0.2, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02,
+    sheen: 0.18, sheenRoughness: 0.5, sheenColor: new THREE.Color(0x8d9bff), envMapIntensity: 0.8 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), bodyMat);
   head.add(body);
 
-  // face: two eyes with catchlights and glow, and a mouth that only shows when it's pleased
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xe9ebff, toneMapped: false });
-  const catchMat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
-  const EYE_X = 0.21, EYE_Y = 0.03;
+  // face: two tall pill eyes that glide over the surface, and a smile that only shows when it's pleased.
+  // Everything sits on pivots at the sphere's centre, so turning a pivot moves a feature along the surface.
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xf1f2ff, toneMapped: false });
+  const EYE_A = 0.23, EYE_B = 0.02;                      // eye spacing and height, as angles on the sphere
+  const face = new THREE.Group(); head.add(face);
   const eyes = [-1, 1].map(side => {
-    const g = new THREE.Group(); g.position.set(side * EYE_X, EYE_Y, R + 0.005);
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.092, 32, 16), eyeMat); ball.scale.set(1, 1.45, 0.35);
-    const shine = new THREE.Mesh(new THREE.SphereGeometry(0.024, 16, 8), catchMat); shine.position.set(0.03, 0.058, 0.035);
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x8d9bff, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }));
-    glow.scale.set(0.8, 0.9, 1); glow.position.z = -0.01;
-    g.add(glow, ball, shine); head.add(g);
-    return { side, g, ball, shine, glow };
+    const pivot = new THREE.Group(); pivot.rotation.set(-EYE_B, side * EYE_A, 0); face.add(pivot);
+    const g = new THREE.Group(); g.position.z = R + 0.004; pivot.add(g);
+    const ball = new THREE.Mesh(new THREE.CapsuleGeometry(0.066, 0.2, 8, 24), eyeMat); ball.scale.z = 0.3;
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x8d9bff, transparent: true, opacity: 0.8, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending }));
+    glow.scale.set(0.42, 0.62, 1); glow.renderOrder = 2;
+    g.add(glow, ball);
+    return { side, pivot, g, ball, glow };
   });
+  const mouthPivot = new THREE.Group(); mouthPivot.rotation.x = 0.2; face.add(mouthPivot);
   const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.015, 10, 32, Math.PI), eyeMat);
   mouth.rotation.z = Math.PI;                                 // the lower half of a ring: a smile
-  mouth.position.set(0, -0.13, 0.447); mouth.scale.setScalar(0.001); head.add(mouth);
-
-  // the heartbeat line behind the capsule: a glowing tube along an ECG path, scrolling sideways
-  const ecg = [[0, 0], [30, 0], [33, 2], [36, 0], [40, 0], [42, -2.4], [45, 12], [48, -6], [52, 0], [64, 0], [70, 3], [76, 0], [100, 0]];
-  const pts = [];
-  const period = 1.6, span = 22, SPEED = 0.55;
-  for (let base = -span / 2; base < span / 2; base += period) for (const [px, py] of ecg) pts.push(new THREE.Vector3(base + (px / 100) * period, py * 0.045, 0));
-  const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.05);
-  const lineMat = new THREE.MeshBasicMaterial({ color: 0x8d9bff, toneMapped: false, transparent: true, opacity: 0.95 });
-  const haloMat = new THREE.MeshBasicMaterial({ color: 0x8d9bff, toneMapped: false, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false });
-  const wave = new THREE.Group();
-  wave.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 1400, 0.011, 6), lineMat));
-  wave.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 1400, 0.045, 8), haloMat));
-  wave.position.set(0, -0.05, -1.4);
-  rig.add(wave);
+  mouth.position.z = R + 0.004; mouth.scale.setScalar(0.001); mouthPivot.add(mouth);
 
   // ---------- behaviour ----------
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -723,8 +721,8 @@ function buildScene() {
     // the body follows on a soft spring and only turns most of the way; the eyes lead on a quick one
     spring(headYaw, targetYaw * 0.8, reduce ? 60 : 4.2, dt);
     spring(headPitch, targetPitch * 0.6, reduce ? 60 : 4.2, dt);
-    spring(eyeX, clamp((targetYaw - headYaw.x) * 0.22, -0.065, 0.065), reduce ? 60 : 16, dt);
-    spring(eyeY, clamp((targetPitch - headPitch.x) * 0.2, -0.04, 0.04), reduce ? 60 : 16, dt);
+    spring(eyeX, clamp((targetYaw - headYaw.x) * 0.7, -0.24, 0.24), reduce ? 60 : 16, dt);
+    spring(eyeY, clamp((targetPitch - headPitch.x) * 0.7, -0.16, 0.16), reduce ? 60 : 16, dt);
 
     // closeness: perks up when the cursor comes near
     Wscreen.copy(W).project(camera);
@@ -751,41 +749,36 @@ function buildScene() {
     const happy = now < happyUntil;
     spring(smile, happy ? 1 : 0, 9, dt);
     const sm = clamp(smile.x, 0, 1.2);
+    face.rotation.set(dizzy ? 0 : -eyeY.x, dizzy ? 0 : eyeX.x, 0);
     for (const eye of eyes) {
-      let ox = eyeX.x, oy = eyeY.x;
-      if (dizzy) { const a = t * 13 * eye.side; ox = Math.cos(a) * 0.035; oy = Math.sin(a) * 0.035; }
-      eye.g.position.set(eye.side * EYE_X + ox, EYE_Y + oy + sm * 0.018, R + 0.005);
-      const open = (1 - 0.92 * b) * (1 - 0.5 * sm);                                  // blink and happy squint
-      eye.ball.scale.set(1 + 0.14 * n, 1.45 * open * (1 + 0.12 * n), 0.35);
-      eye.shine.visible = b < 0.5 && sm < 0.5;
+      let ox = 0, oy = 0;
+      if (dizzy) { const a = t * 13 * eye.side; ox = Math.cos(a) * 0.09; oy = Math.sin(a) * 0.09; }
+      eye.pivot.rotation.set(-EYE_B - oy - sm * 0.02, eye.side * EYE_A + ox, 0);
+      const open = (1 - 0.92 * b) * (1 - 0.55 * sm);                                 // blink and happy squint
+      eye.ball.scale.set(1 + 0.14 * n, open * (1 + 0.12 * n), 0.3);
     }
     mouth.scale.setScalar(Math.max(0.001, sm));
-    mouth.position.x = eyeX.x * 0.6;
 
-    // heartbeat: the eyes and aura brighten as each spike passes behind the capsule
-    wave.position.x = reduce ? 0 : -((t * SPEED) % period);
-    let d = (((-span / 2 + 0.45 * period + wave.position.x) % period) + period) % period;
-    if (d > period / 2) d -= period;
-    const beat = reduce ? 0 : Math.exp(-((d / 0.22) ** 2));
-    for (const eye of eyes) { eye.glow.material.opacity = 0.7 + 0.45 * beat + 0.25 * n; const gs = 1 + 0.25 * beat + 0.15 * n; eye.glow.scale.set(0.8 * gs, 0.9 * gs, 1); }
-    aura.material.opacity = (0.08 + 0.1 * beat + 0.06 * n) * pz.wave;
+    // a slow pulse in the eye glow and the aura, brighter when the cursor comes near
+    const pulse = reduce ? 0.5 : 0.5 + 0.5 * Math.sin(t * 1.7);
+    for (const eye of eyes) { eye.glow.material.opacity = (0.55 + 0.25 * pulse + 0.3 * n) * (1 - 0.9 * b); const gs = 1 + 0.12 * pulse + 0.15 * n; eye.glow.scale.set(0.5 * gs, 0.75 * gs, 1); }
+    aura.material.opacity = (0.07 + 0.05 * pulse + 0.06 * n) * pz.wave;
     shadow.material.opacity = 0.55 * pz.show;
 
     // a soft light that follows the cursor, so highlights slide across the lacquer
     spring(lightOn, active ? 1 : 0, 3, dt);
     if (ptr.has && T.lengthSq()) cursorLight.position.lerp(new THREE.Vector3(T.x, T.y, 2.4), 0.12);
-    cursorLight.intensity = 3.2 * clamp(lightOn.x, 0, 1);
+    cursorLight.intensity = 7 * clamp(lightOn.x, 0, 1);
 
-    // fade the canvas on the side where the copy sits, so the line never runs through text
+    // fade the far edge of the canvas on the side where the copy sits, so the aura never dims text
+    // (gentle: it stops well before the sphere, which must stay whole when it turns to look at the copy)
     const side = mobile ? 'none' : pz.x > 0.3 ? 'right' : pz.x < -0.3 ? 'left' : 'none';
     if (side !== maskSide) {
       maskSide = side;
-      const m = side === 'right' ? 'linear-gradient(90deg, transparent 0%, transparent 40%, #000 60%)'
-        : side === 'left' ? 'linear-gradient(270deg, transparent 0%, transparent 40%, #000 60%)' : 'none';
+      const m = side === 'right' ? 'linear-gradient(90deg, transparent 18%, #000 36%)'
+        : side === 'left' ? 'linear-gradient(270deg, transparent 18%, #000 36%)' : 'none';
       canvas.style.webkitMaskImage = canvas.style.maskImage = m;
     }
-    wave.visible = pz.wave > 0.02;
-    lineMat.opacity = 0.95 * pz.wave; haloMat.opacity = 0.16 * pz.wave;
     const op = canvas.classList.contains('ready') ? Math.round(pz.show * Math.min(1, prog.intro * 2) * 100) / 100 : 0;
     if (op !== lastOp) { lastOp = op; canvas.style.opacity = op; }
     if (visible && pz.show > 0.01) renderer.render(scene, camera);
@@ -797,12 +790,27 @@ function buildScene() {
   function setTheme(main, second) {
     const m = new THREE.Color(main);
     for (const l of [rimA, rimB]) l.color.copy(m);
-    bodyMat.color.set(second).multiplyScalar(0.4); bodyMat.sheenColor.copy(m);  // keep the lacquer dark in every theme
-    lineMat.color.copy(m); haloMat.color.copy(m); aura.material.color.copy(m);
+    bodyMat.color.set(second).multiplyScalar(0.12); bodyMat.sheenColor.copy(m);  // stays black in every theme, tinted a touch
+    aura.material.color.copy(m);
     for (const e of eyes) e.glow.material.color.copy(m);
   }
   return { setTheme };
 }
+
+// ---------- the field under the sphere ----------
+(() => {
+  const field = document.querySelector('.field'), video = field.querySelector('video');
+  if (mobile) return;                         // phones skip it (and its download)
+  video.src = video.dataset.src;
+  const play = () => { if (!reduce) video.play().catch(() => {}); };
+  play();
+  ScrollTrigger.create({
+    trigger: '.hero', start: 'top top', end: 'bottom top',
+    onUpdate: st => { field.style.opacity = 1 - st.progress; },
+    onLeave: () => { field.style.opacity = 0; video.pause(); },
+    onEnterBack: play,
+  });
+})();
 
 // ---------- entrance ----------
 const intro = gsap.timeline({ defaults: { ease: 'expo.out' } });
