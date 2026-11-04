@@ -91,7 +91,8 @@ function createWindow() {
     alwaysOnTop: true, hasShadow: false, show: false, backgroundColor: '#00000000', roundedCorners: false,
     // macOS: a non-activating panel floats over full-screen apps without stealing focus from them
     ...(IS_MAC ? { type: 'panel', enableLargerThanScreen: true, fullscreenable: false } : {}),
-    webPreferences: { preload: path.join(__dirname, '..', 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
+    webPreferences: { preload: path.join(__dirname, '..', 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false,
+      ...(FILM ? { offscreen: true, backgroundThrottling: false } : {}) }, // film mode records at 60 fps (see film.js)
   });
   place();
   win.setAlwaysOnTop(true, 'screen-saver');
