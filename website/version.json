@@ -1,15 +1,9 @@
 {
-  "version": "0.2.0",
+  "version": "0.2.1",
   "released": "2026-11-04",
   "sizeMB": 120,
-  "sha256": "8d3d5cdb94c2c6dc62a7b5d91840015be9311a62c73718e8c5921bc837580671",
+  "sha256": "7e61f2b746f74afde6f6503596dbd3f1889fee1051e40b2c6a3eac870079da05",
   "signed": false,
   "download": "https://github.com/im-Amrith/Pulse-releases/releases/latest/download/Pulse-win-x64.zip",
-  "notes": "https://github.com/im-Amrith/Pulse-releases/releases/tag/v0.2.0",
-  "mac": {
-    "sizeMB": 216,
-    "sha256": "9f4aff856d17279c4c0676d639278d43cb2d906acca063848d2d236894cb6af6",
-    "signed": false,
-    "download": "https://github.com/im-Amrith/Pulse-releases/releases/latest/download/Pulse-mac-universal.dmg"
-  }
+  "notes": "https://github.com/im-Amrith/Pulse-releases/releases/tag/v0.2.1"
 }
