@@ -7,7 +7,7 @@
   "productName": "Pulse",
   "scripts": {
     "start": "electron .",
-    "test": "node --test test/",
+    "test": "node --test \"test/*.test.js\"",
     "release": "node scripts/release.js",
     "deploy": "node scripts/deploy.js"
   },
