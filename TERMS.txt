@@ -71,7 +71,7 @@ any usage limits.
 9. Unsigned software and security warnings
 Pulse may not be code-signed or notarized, so Windows or macOS may show a warning when you first
 open it. Only
-download Pulse from its official download page. We are not responsible for copies obtained
+download Pulse from its official download page, or build it yourself from the source code. We are not responsible for copies obtained
 anywhere else, which may have been altered.
 
 10. Acceptable use
@@ -80,8 +80,9 @@ any service it connects to. Do not use Pulse in situations where its failure cou
 death, injury, or serious physical, environmental or financial harm.
 
 11. Licence
-Your right to use Pulse is described in the Pulse Software Licence (LICENSE.txt), which is part
-of these terms.
+Pulse's source code is open source under the MIT License (LICENSE.txt). You may use, copy,
+change and share it under that licence. These terms cover the builds and the website the author
+publishes; if you build or share your own copy, these terms don't apply to what you change.
 
 12. Changes and ending
 We may change these terms or stop offering Pulse at any time. The version included with each
@@ -94,4 +95,4 @@ unenforceable part is limited to the minimum extent necessary. Some places do no
 warranty exclusions or liability limits, so some of the above may not apply to you; in that
 case they apply to the fullest extent your local law allows.
 
-Questions about these terms: open an issue at https://github.com/im-Amrith/Pulse-releases
+Questions about these terms: open an issue at https://github.com/im-Amrith/Pulse/issues

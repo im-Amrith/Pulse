@@ -2,7 +2,7 @@
 # Used by .github/workflows/mac.yml; the version comes from package.json.
 appId: com.amrithesh.pulse
 productName: Pulse
-copyright: Copyright © 2026 Amrithesh S Menon. All rights reserved.
+copyright: Copyright © 2026 Amrithesh S Menon. MIT License.
 directories:
   output: release-mac
 # hook scripts in src/bin are run by Claude Code as plain files, so no asar archive

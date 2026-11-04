@@ -4,3 +4,5 @@ release/
 build/
 *.log
 release-mac/
+.wrangler/
+src/main/bin/

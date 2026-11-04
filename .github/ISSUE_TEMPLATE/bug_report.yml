@@ -1,0 +1,30 @@
+name: Bug report
+description: Something in Pulse doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead. Screenshots help, but please hide anything personal.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Pulse version
+      placeholder: "0.2.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows 11, Windows 10, macOS (Apple Silicon), macOS (Intel)]
+    validations:
+      required: true
+  - type: input
+    id: claude
+    attributes:
+      label: Claude Code version (if it's about Claude Code)
+      placeholder: "run: claude --version"

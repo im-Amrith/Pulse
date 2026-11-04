@@ -1,7 +1,7 @@
 {
   "name": "pulse",
   "version": "0.2.1",
-  "description": "Pulse: a Dynamic Island for Windows that follows Claude Code live.",
+  "description": "Pulse: a living island at the top of your screen that follows Claude Code live, for Windows and macOS.",
   "main": "src/main/main.js",
   "private": true,
   "productName": "Pulse",
@@ -14,12 +14,26 @@
     "film": "node scripts/film.js"
   },
   "author": "Amrithesh S Menon",
-  "license": "SEE LICENSE IN LICENSE.txt",
+  "license": "MIT",
+  "homepage": "https://pulse-bot.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/im-Amrith/Pulse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/im-Amrith/Pulse/issues"
+  },
   "devDependencies": {
     "electron": "^38.2.0",
     "rcedit": "^4.0.1"
   },
   "dependencies": {
     "qrcode": "^1.5.4"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "allowScripts": {
+    "electron": true
   }
 }
