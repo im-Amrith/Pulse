@@ -61,5 +61,8 @@ contextBridge.exposeInMainWorld('pulse', {
   pinIcons: () => call('pins:icons'),
   phoneStart: () => call('phone:start'),
   phoneStop: () => call('phone:stop'),
+  openTerms: () => call('app:terms'),
+  openUpdate: () => call('app:update'),
+  checkUpdate: () => call('app:check-update'),
   quit: () => call('quit'),
 });

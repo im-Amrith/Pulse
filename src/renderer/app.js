@@ -986,7 +986,17 @@ function renderSettings() {
     pref('lyrics', 'Lyrics', 'Shows synced lyrics while music plays. Songs are looked up on lrclib.net.'),
     pref('notifications', 'Windows notifications', 'Only while Pulse is not in focus.'),
     pref('watchDownloads', 'Watch Downloads', 'Finished downloads go to the Tray and flash in the island.'),
-    row('Shortcut', 'Ctrl+Alt+P unfolds Pulse and Esc folds it in.', null)));
+    row('Shortcut', 'Ctrl+Alt+P unfolds Pulse and Esc folds it in.', null),
+    versionRow(row),
+    row('Terms of use', 'Pulse is provided as is, without warranty. Not affiliated with Anthropic.',
+      h('button', { class: 'btn', text: 'Read', onclick: () => act(() => pulse.openTerms()) }))));
+}
+function versionRow(row) {
+  const a = S.appInfo || {}, u = a.update || {};
+  const sub = u.available ? `Version ${u.latest} is available.` : u.checkedAt ? 'You have the latest version.' : 'Checks for updates every few hours.';
+  return row(`Pulse ${a.version || ''}`, sub, u.available
+    ? h('button', { class: 'btn primary', text: 'Get update', onclick: () => act(() => pulse.openUpdate()) })
+    : h('button', { class: 'btn', text: 'Check now', onclick: () => act(() => pulse.checkUpdate()) }));
 }
 
 // Colours: six ready-made pairs, or pick your own main and secondary colour.

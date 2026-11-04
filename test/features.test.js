@@ -48,6 +48,20 @@ test('downloads: skips partial files and reports finished ones once', async () =
   assert.deepEqual(got, ['report.pdf']);
 });
 
+test('update check compares versions and reads the latest release', async () => {
+  const { isNewer, Updates } = require('../src/main/updates');
+  assert.equal(isNewer('0.2.0', '0.1.9'), true);
+  assert.equal(isNewer('v1.0.0', '0.9.9'), true);
+  assert.equal(isNewer('0.1.0', '0.1.0'), false);
+  assert.equal(isNewer('0.1.0', '0.2.0'), false);
+  assert.equal(isNewer('0.2.0-beta', '0.2.0'), false);
+  const u = new Updates('0.1.0', { fetchImpl: async () => ({ ok: true, json: async () => ({ tag_name: 'v0.2.0', html_url: 'https://example.test/r' }) }) });
+  const st = await u.check();
+  assert.deepEqual([st.latest, st.available, st.url], ['0.2.0', true, 'https://example.test/r']);
+  const offline = new Updates('0.1.0', { fetchImpl: async () => { throw new Error('offline'); } });
+  assert.equal((await offline.check()).available, false);
+});
+
 test('cpuPercent from two samples', () => {
   assert.equal(cpuPercent({ idle: 100, total: 200 }, { idle: 150, total: 400 }), 75);
   assert.equal(cpuPercent({ idle: 0, total: 0 }, { idle: 0, total: 0 }), 0);

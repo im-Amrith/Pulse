@@ -4,14 +4,17 @@
   "description": "Pulse: a Dynamic Island for Windows that follows Claude Code live.",
   "main": "src/main/main.js",
   "private": true,
+  "productName": "Pulse",
   "scripts": {
     "start": "electron .",
-    "test": "node --test test/"
+    "test": "node --test test/",
+    "release": "node scripts/release.js"
   },
   "author": "Amrithesh S Menon",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE.txt",
   "devDependencies": {
-    "electron": "^38.2.0"
+    "electron": "^38.2.0",
+    "rcedit": "^4.0.1"
   },
   "dependencies": {
     "qrcode": "^1.5.4"

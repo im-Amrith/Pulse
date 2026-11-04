@@ -11,8 +11,9 @@ const EVENTS = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse',
 const BIN = path.join(__dirname, '..', 'bin');
 const HOOK_URL = `http://127.0.0.1:${PORT}${ROUTES.hook}`;
 
-function createClaudeConfig({ token, settingsFile = path.join(os.homedir(), '.claude', 'settings.json') }) {
-  const node = process.env.PULSE_NODE || 'node';
+// `node` is how hook scripts get run. The packaged app passes its own exe in Node mode
+// (ELECTRON_RUN_AS_NODE) so people don't need Node.js installed.
+function createClaudeConfig({ token, node = process.env.PULSE_NODE || 'node', settingsFile = path.join(os.homedir(), '.claude', 'settings.json') }) {
   const statusCommand = `${node} "${path.join(BIN, 'pulse-status.js')}" ${token}`;
   const replyCommand = `${node} "${path.join(BIN, 'pulse-reply.js')}" ${token}`;
 

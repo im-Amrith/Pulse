@@ -1,0 +1,9 @@
+{
+  "version": "0.1.0",
+  "released": "2026-11-04",
+  "sizeMB": 120,
+  "sha256": "c424a5df137a28bca4a53ba8685d58b893c3e63ea27be8470f8593f18aa00f59",
+  "signed": false,
+  "download": "https://github.com/im-Amrith/Pulse-releases/releases/latest/download/Pulse-win-x64.zip",
+  "notes": "https://github.com/im-Amrith/Pulse-releases/releases/tag/v0.1.0"
+}

@@ -12,6 +12,7 @@ const { createAsk } = require('./ask');
 const { PhoneBridge } = require('./phone');
 const { Lyrics } = require('./lyrics');
 const { DownloadsWatcher } = require('./downloads');
+const { Updates } = require('./updates');
 const { randomUUID } = require('node:crypto');
 const { iconPng } = require('./icon');
 
@@ -20,7 +21,31 @@ app.setAppUserModelId('com.amrithesh.pulse');
 
 // The window is a fixed transparent canvas hanging from the top edge; the island inside grows and shrinks.
 const WIDTH = 720, HEIGHT = 560;
-let win = null, tray = null, hub, claude, media, clips, sys, ask, phone, lyrics, downloads, prefs, history;
+let win = null, tray = null, hub, claude, media, clips, sys, ask, phone, lyrics, downloads, updates, prefs, history;
+
+// Bump when TERMS.txt changes in a way people should agree to again.
+const TERMS_VERSION = '2026-11-04';
+const termsPath = () => path.join(app.getAppPath(), 'TERMS.txt');
+
+// Before Pulse starts for the first time (or after the terms change), ask the user to agree.
+async function ensureTermsAccepted() {
+  if (prefs.get().termsAccepted === TERMS_VERSION) return true;
+  for (;;) {
+    const { response } = await dialog.showMessageBox({
+      type: 'info', title: 'Pulse', noLink: true, defaultId: 0, cancelId: 2,
+      icon: nativeImage.createFromBuffer(iconPng(64)),
+      message: 'Before you start',
+      detail: 'Pulse is free software provided "as is", without any warranty. You are responsible for every request '
+        + 'you allow Claude Code to carry out through Pulse, so read each one before approving it and keep backups '
+        + 'of anything important.\n\nPulse is not affiliated with Anthropic or any other company.\n\n'
+        + 'By choosing "Agree and continue" you accept the Pulse Terms of Use and Software Licence.',
+      buttons: ['Agree and continue', 'Read the terms', 'Quit'],
+    });
+    if (response === 0) { prefs.set({ ...prefs.get(), termsAccepted: TERMS_VERSION, termsAcceptedAt: new Date().toISOString() }); prefs.flush(); return true; }
+    if (response === 1) { await shell.openPath(termsPath()); continue; }
+    return false;
+  }
+}
 
 const userData = () => app.getPath('userData');
 const send = (channel, payload) => { if (win && !win.isDestroyed()) win.webContents.send(channel, payload); };
@@ -81,6 +106,7 @@ function state() {
     media: media.state, volume: media.volume, lyrics: lyrics.current, system: sys.state, clipboard: clips.items,
     prefs: prefs.get(), history: history.list(), phone: phone.status(), askBusy: ask.busy(),
     startWithWindows: app.getLoginItemSettings().openAtLogin,
+    appInfo: { version: app.getVersion(), update: updates.state },
   };
 }
 let pushTimer = null;
@@ -236,6 +262,9 @@ function wireIpc() {
   handle('phone:start', () => phone.start());
   handle('phone:stop', () => phone.stop());
 
+  handle('app:terms', () => shell.openPath(termsPath()));
+  handle('app:update', () => shell.openExternal(updates.state.url));
+  handle('app:check-update', async () => { await updates.check(); push(); return updates.state; });
   handle('quit', () => app.quit());
 }
 
@@ -244,9 +273,18 @@ app.whenReady().then(async () => {
   const token = loadToken(dir);
   prefs = jsonFile(path.join(dir, 'prefs.json'), { note: '', shelf: [], notifications: true, sound: true, autoOpen: true, focusMinutes: 25 });
   history = historyStore(dir);
+  if (!(await ensureTermsAccepted())) { app.quit(); return; }
+  updates = new Updates(app.getVersion());
+  updates.on('change', () => {
+    push();
+    if (updates.state.available && Notification.isSupported()) {
+      const n = new Notification({ title: `Pulse ${updates.state.latest} is available`, body: 'Click to download the update.', icon: nativeImage.createFromBuffer(iconPng(64)) });
+      n.on('click', () => shell.openExternal(updates.state.url)); n.show();
+    }
+  });
   ask = createAsk({ dir: path.join(dir, 'ask') });
   hub = new Hub({ token, history, ignoreCwd: ask.dir });
-  claude = createClaudeConfig({ token });
+  claude = createClaudeConfig({ token, node: app.isPackaged ? `ELECTRON_RUN_AS_NODE=1 "${process.execPath}"` : undefined });
   media = new Media();
   clips = new ClipboardHistory();
   sys = new SystemStatus();
@@ -273,7 +311,7 @@ app.whenReady().then(async () => {
   createTray();
   trackCursor();
   await hub.start();
-  media.start(); clips.start(); sys.start(); downloads.start();
+  media.start(); clips.start(); sys.start(); downloads.start(); updates.start();
   // CPU / RAM go out on their own channel so the page isn't re-rendered every 2 seconds.
   sys.on('stats', stats => send('stats', stats));
   setInterval(checkReminders, 5000);
@@ -287,5 +325,5 @@ app.on('second-instance', () => send('island:open'));
 app.on('window-all-closed', e => e.preventDefault?.());
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
-  media?.stop(); clips?.stop(); sys?.stop(); downloads?.stop(); phone?.stop(); ask?.cancel(); hub?.stop(); prefs?.flush(); history?.flush();
+  media?.stop(); clips?.stop(); sys?.stop(); downloads?.stop(); updates?.stop(); phone?.stop(); ask?.cancel(); hub?.stop(); prefs?.flush(); history?.flush();
 });

@@ -1,0 +1,33 @@
+PULSE SOFTWARE LICENCE
+
+Copyright (c) 2026 Amrithesh S Menon. All rights reserved.
+
+1. Licence to use
+You may download, install and use Pulse ("the Software") free of charge on any number of
+computers that you own or control, for personal or work purposes.
+
+2. Restrictions
+Except where the law expressly allows it, you may not:
+  a) copy, sell, rent, lease, sublicense or redistribute the Software or any part of it;
+  b) publish the Software on any other website, store or download service;
+  c) modify, decompile, disassemble or create derivative works of the Software;
+  d) remove or change any copyright notice, licence or terms included with the Software.
+Share the official download page instead of the files themselves.
+
+3. Ownership
+The Software is licensed, not sold. All rights not expressly granted in this licence are
+reserved by the author.
+
+4. No warranty and limitation of liability
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NON-INFRINGEMENT. TO THE FULLEST EXTENT PERMITTED BY LAW, IN NO EVENT SHALL THE AUTHOR BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OF OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+5. Termination
+This licence ends automatically if you break any of its terms. When it ends you must stop
+using the Software and delete all copies.
+
+Using the Software also means you accept the Pulse Terms of Use (TERMS.txt).
