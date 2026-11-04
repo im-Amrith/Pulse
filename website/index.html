@@ -46,11 +46,14 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 /* the 3D stage lives behind the page */
 /* opacity is driven from the render loop (it fades with the capsule's pose), so no CSS transition here */
 #gl { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0; }
-/* the moving field of beads under the sphere (hero only; fades out as you scroll on).
-   Screen blending drops the video's black, so only the beads show on the page colour. */
+/* the silk ribbon behind the hero, full screen (fades out as you scroll on).
+   Screen blending drops the video's black, so only the ribbon shows on the page colour;
+   it's dimmed under the copy on the left so the text stays easy to read. */
 .field { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-.field video { position: absolute; left: 33vw; top: 56%; width: 76vw; aspect-ratio: 16 / 9; translate: 0 -50%; object-fit: cover; opacity: .85; mix-blend-mode: screen;
-  -webkit-mask-image: radial-gradient(closest-side, #000 62%, transparent); mask-image: radial-gradient(closest-side, #000 62%, transparent); }
+.field video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; mix-blend-mode: screen;
+  -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,.5) 30%, #000 60%), linear-gradient(transparent, #000 18%, #000 82%, transparent);
+  -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,.5) 30%, #000 60%), linear-gradient(transparent, #000 18%, #000 82%, transparent);
+  mask-composite: intersect; }
 main, header.nav, footer { position: relative; z-index: 2; }
 
 /* ---------- nav ---------- */
@@ -147,7 +150,7 @@ html.no-gl .hero-fallback { display: block; }
               radial-gradient(circle at 42% 38%, #1b1d2b, #030307 72%);
   box-shadow: inset 0 0 0 1px rgba(169,174,203,.12), 0 0 60px color-mix(in srgb, var(--accent) 28%, transparent);
   align-items: center; justify-content: center; gap: 16px; }
-.css-pill i { width: 12px; height: 36px; border-radius: 8px; background: #eef0ff; box-shadow: 0 0 16px var(--accent), 0 0 4px #fff; animation: blink 4.6s infinite; }
+.css-pill i { width: 12px; height: 36px; border-radius: 8px; background: #eef0ff; animation: blink 4.6s infinite; }
 @keyframes blink { 0%, 46%, 50%, 100% { transform: scaleY(1); } 48% { transform: scaleY(.1); } }
 
 /* ---------- pinned stage ---------- */
@@ -286,7 +289,7 @@ footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
 </head>
 <body>
 <div class="grain" aria-hidden="true"></div>
-<div class="field" aria-hidden="true"><video data-src="assets/field.mp4" poster="assets/field.jpg" muted loop playsinline preload="auto"></video></div>
+<div class="field" aria-hidden="true"><video data-src="assets/silk.mp4" poster="assets/silk.jpg" muted loop playsinline preload="auto"></video></div>
 <canvas id="gl" aria-hidden="true"></canvas>
 
 <header class="nav">
@@ -576,7 +579,7 @@ function buildScene() {
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.32; // a dim studio: the body stays black, the coat reflects the room
+  scene.environmentIntensity = 0.18; // a dim studio: the body stays black, the coat reflects the room
   pmrem.dispose();
   const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
   camera.position.set(0, 0, 9);
@@ -584,7 +587,7 @@ function buildScene() {
   // rim lights in the brand colour give the glossy body its edge; a soft light follows the cursor
   const rimA = new THREE.PointLight(0x8d9bff, 14, 12); rimA.position.set(-3, 2.2, -1.5); scene.add(rimA);
   const rimB = new THREE.PointLight(0x8d9bff, 6, 12); rimB.position.set(3.2, -1.6, 1.2); scene.add(rimB);
-  const key = new THREE.DirectionalLight(0xffffff, 1.3); key.position.set(-2.5, 3.5, 4); scene.add(key);
+  const key = new THREE.DirectionalLight(0xffffff, 0.85); key.position.set(-2.5, 3.5, 4); scene.add(key);
   const cursorLight = new THREE.PointLight(0xeef0ff, 0, 7, 2); cursorLight.position.set(0, 0, 3); scene.add(cursorLight);
 
   // rig (scroll pose) > head (turns toward you) > the sphere and its face
@@ -592,7 +595,7 @@ function buildScene() {
   const head = new THREE.Group(); rig.add(head);
   const glowTex = glowTexture();
 
-  // a faint aura behind and a soft shadow below make it float above the field
+  // a faint aura behind and a soft shadow below make it float
   const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x8d9bff, transparent: true, opacity: 0.1, depthWrite: false, blending: THREE.AdditiveBlending }));
   aura.scale.set(3.8, 3.8, 1); aura.position.set(0, 0, -1.3); rig.add(aura);
   const shadowTex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d');
@@ -604,12 +607,12 @@ function buildScene() {
   // body: a black glossy sphere. All of its shine comes from the lights and the studio reflections,
   // so highlights slide over it as it turns and as the cursor light moves.
   const R = 0.95;
-  const bodyMat = new THREE.MeshPhysicalMaterial({ color: 0x020206, roughness: 0.2, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02,
-    sheen: 0.18, sheenRoughness: 0.5, sheenColor: new THREE.Color(0x8d9bff), envMapIntensity: 0.8 });
+  const bodyMat = new THREE.MeshPhysicalMaterial({ color: 0x020206, roughness: 0.32, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.1,
+    sheen: 0.12, sheenRoughness: 0.5, sheenColor: new THREE.Color(0x8d9bff), envMapIntensity: 0.6 });
   const body = new THREE.Mesh(new THREE.SphereGeometry(R, 96, 64), bodyMat);
   head.add(body);
 
-  // face: two tall pill eyes that glide over the surface, and a smile that only shows when it's pleased.
+  // face: two tall plain pill eyes that glide over the surface, and a smile that only shows when it's pleased.
   // Everything sits on pivots at the sphere's centre, so turning a pivot moves a feature along the surface.
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0xf1f2ff, toneMapped: false });
   const EYE_A = 0.23, EYE_B = 0.02;                      // eye spacing and height, as angles on the sphere
@@ -618,10 +621,8 @@ function buildScene() {
     const pivot = new THREE.Group(); pivot.rotation.set(-EYE_B, side * EYE_A, 0); face.add(pivot);
     const g = new THREE.Group(); g.position.z = R + 0.004; pivot.add(g);
     const ball = new THREE.Mesh(new THREE.CapsuleGeometry(0.066, 0.2, 8, 24), eyeMat); ball.scale.z = 0.3;
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x8d9bff, transparent: true, opacity: 0.8, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending }));
-    glow.scale.set(0.42, 0.62, 1); glow.renderOrder = 2;
-    g.add(glow, ball);
-    return { side, pivot, g, ball, glow };
+    g.add(ball);
+    return { side, pivot, g, ball };
   });
   const mouthPivot = new THREE.Group(); mouthPivot.rotation.x = 0.2; face.add(mouthPivot);
   const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.015, 10, 32, Math.PI), eyeMat);
@@ -759,16 +760,15 @@ function buildScene() {
     }
     mouth.scale.setScalar(Math.max(0.001, sm));
 
-    // a slow pulse in the eye glow and the aura, brighter when the cursor comes near
+    // a slow pulse in the aura, brighter when the cursor comes near
     const pulse = reduce ? 0.5 : 0.5 + 0.5 * Math.sin(t * 1.7);
-    for (const eye of eyes) { eye.glow.material.opacity = (0.55 + 0.25 * pulse + 0.3 * n) * (1 - 0.9 * b); const gs = 1 + 0.12 * pulse + 0.15 * n; eye.glow.scale.set(0.5 * gs, 0.75 * gs, 1); }
     aura.material.opacity = (0.07 + 0.05 * pulse + 0.06 * n) * pz.wave;
     shadow.material.opacity = 0.55 * pz.show;
 
     // a soft light that follows the cursor, so highlights slide across the lacquer
     spring(lightOn, active ? 1 : 0, 3, dt);
     if (ptr.has && T.lengthSq()) cursorLight.position.lerp(new THREE.Vector3(T.x, T.y, 2.4), 0.12);
-    cursorLight.intensity = 7 * clamp(lightOn.x, 0, 1);
+    cursorLight.intensity = 4.5 * clamp(lightOn.x, 0, 1);
 
     // fade the far edge of the canvas on the side where the copy sits, so the aura never dims text
     // (gentle: it stops well before the sphere, which must stay whole when it turns to look at the copy)
@@ -792,12 +792,11 @@ function buildScene() {
     for (const l of [rimA, rimB]) l.color.copy(m);
     bodyMat.color.set(second).multiplyScalar(0.12); bodyMat.sheenColor.copy(m);  // stays black in every theme, tinted a touch
     aura.material.color.copy(m);
-    for (const e of eyes) e.glow.material.color.copy(m);
   }
   return { setTheme };
 }
 
-// ---------- the field under the sphere ----------
+// ---------- the silk background ----------
 (() => {
   const field = document.querySelector('.field'), video = field.querySelector('video');
   if (mobile) return;                         // phones skip it (and its download)
