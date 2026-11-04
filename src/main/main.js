@@ -363,7 +363,7 @@ app.whenReady().then(async () => {
   wireIpc();
   createWindow();
   if (FILM) {
-    require('./film').run({ win, hub, media, lyrics, sys, claude, prefs, push, send, outDir: path.resolve(FILM) })
+    require('./film').run({ win, hub, media, lyrics, sys, claude, prefs, push, send, clips, history, outDir: path.resolve(FILM) })
       .catch(err => console.error('FILM failed', err)).finally(() => app.exit(0));
     return;
   }

@@ -1,0 +1,90 @@
+<template>
+  <style>
+    @font-face { font-family: "Barlow Condensed"; font-weight: 600; src: url("assets/fonts/BarlowCondensed-SemiBold.ttf") format("truetype"); }
+    #type { position: absolute; inset: 0; pointer-events: none; color: #f5f1e8; font-family: "Barlow Condensed", sans-serif; font-weight: 600; }
+    #type .tx { position: absolute; display: flex; flex-direction: column; }
+    #type .ln { display: block; overflow: hidden; padding: .04em .02em .08em; margin: -.04em 0 -.08em; }
+    #type .in { display: block; will-change: transform; }
+    #type .gold { color: #d28a0f; }
+    #type .small { font-family: Inter, sans-serif; font-weight: 400; color: #a39e93; letter-spacing: 0; }
+    #type .url { font-family: Inter, sans-serif; font-weight: 700; color: #d28a0f; letter-spacing: -.01em; }
+    #ty-scrim { position: absolute; inset: 0; }
+
+    /* landscape: a text column on the left, the laptop to its right */
+    #type[data-layout="landscape"] #ty-scrim { background: linear-gradient(90deg, rgba(0,0,0,.82) 0%, rgba(0,0,0,.6) 28%, rgba(0,0,0,0) 44%); }
+    #type[data-layout="landscape"] .col { left: 150px; width: 560px; top: 0; bottom: 0; justify-content: center; font-size: 104px; line-height: .94; letter-spacing: -.01em; }
+    #type[data-layout="landscape"] .label { font-size: 132px; }
+    #type[data-layout="landscape"] .hook { left: 0; right: 0; top: 560px; align-items: center; font-size: 150px; line-height: 1; letter-spacing: -.015em; }
+    #type[data-layout="landscape"] .end { left: 0; right: 0; top: 540px; align-items: center; font-size: 96px; line-height: 1; }
+    #type[data-layout="landscape"] .cta-url { font-size: 44px; margin-top: 26px; }
+    #type[data-layout="landscape"] .cta-small { font-size: 28px; margin-top: 14px; line-height: 1.3; }
+    #type[data-layout="landscape"] .end-url { font-size: 34px; margin-top: 14px; }
+
+    /* vertical: the laptop sits high, text is centred below it, inside y 1000-1560 */
+    #type[data-layout="vertical"] #ty-scrim { background: linear-gradient(180deg, rgba(0,0,0,0) 46%, rgba(0,0,0,.7) 54%, rgba(0,0,0,.7) 100%); }
+    #type[data-layout="vertical"] .col { left: 80px; right: 80px; top: 1090px; height: 540px; justify-content: flex-start; align-items: center; text-align: center; font-size: 132px; line-height: .94; letter-spacing: -.01em; }
+    #type[data-layout="vertical"] .label { font-size: 160px; }
+    #type[data-layout="vertical"] .hook { left: 0; right: 0; top: 1090px; align-items: center; font-size: 170px; line-height: 1; letter-spacing: -.015em; }
+    #type[data-layout="vertical"] .end { left: 0; right: 0; top: 700px; align-items: center; font-size: 130px; line-height: 1; }
+    #type[data-layout="vertical"] .cta-url { font-size: 56px; margin-top: 30px; }
+    #type[data-layout="vertical"] .cta-small { font-size: 34px; margin-top: 16px; line-height: 1.3; }
+    #type[data-layout="vertical"] .end-url { font-size: 44px; margin-top: 18px; }
+  </style>
+
+  <div data-hf-id="hf-sjrs" id="type" data-composition-id="type" data-layout="landscape" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-v1cq" id="ty-scrim" class="clip" data-start="3" data-duration="25" data-track-index="0"></div>
+
+    <div data-hf-id="hf-t8dx" id="ty-meet" class="tx hook clip" data-start="0.45" data-duration="2.1" data-track-index="1"><span data-hf-id="hf-smev" class="ln"><span data-hf-id="hf-eq8k" class="in">Meet Pulse.</span></span></div>
+
+    <div data-hf-id="hf-q6wl" id="ty-work" class="tx col clip" data-start="3.15" data-duration="1.85" data-track-index="1"><span data-hf-id="hf-oupj" class="ln"><span data-hf-id="hf-5zn3" class="in">Claude Code</span></span><span data-hf-id="hf-ogei" class="ln"><span data-hf-id="hf-c1bn" class="in">is working…</span></span></div>
+    <div data-hf-id="hf-tsx3" id="ty-check" class="tx col clip" data-start="5.05" data-duration="1.9" data-track-index="1"><span data-hf-id="hf-o23h" class="ln"><span data-hf-id="hf-sfx1" class="in">…and you keep</span></span><span data-hf-id="hf-qu8o" class="ln"><span data-hf-id="hf-hqgf" class="in">checking the</span></span><span data-hf-id="hf-qfxn" class="ln"><span data-hf-id="hf-noyu" class="in">terminal.</span></span></div>
+    <div data-hf-id="hf-xeig" id="ty-follow" class="tx col clip" data-start="7.3" data-duration="4.4" data-track-index="1"><span data-hf-id="hf-q1mm" class="ln"><span data-hf-id="hf-u51b" class="in">It follows</span></span><span data-hf-id="hf-pnbl" class="ln"><span data-hf-id="hf-fyux" class="in">Claude Code,</span></span><span data-hf-id="hf-sfgs" class="ln"><span data-hf-id="hf-biby" class="in gold">live.</span></span></div>
+    <div data-hf-id="hf-4u2j" id="ty-asks" class="tx col clip" data-start="13.2" data-duration="1.9" data-track-index="1"><span data-hf-id="hf-s15r" class="ln"><span data-hf-id="hf-cbb2" class="in">Asks first.</span></span></div>
+    <div data-hf-id="hf-3bqq" id="ty-allow" class="tx col clip" data-start="15.3" data-duration="2.3" data-track-index="1"><span data-hf-id="hf-f8at" class="ln"><span data-hf-id="hf-e31k" class="in">One click</span></span><span data-hf-id="hf-fmlu" class="ln"><span data-hf-id="hf-kld1" class="in">to <span data-hf-id="hf-4kzm" class="gold">allow.</span></span></span></div>
+    <div data-hf-id="hf-ebae" id="ty-smile" class="tx col clip" data-start="18.45" data-duration="1" data-track-index="1"><span data-hf-id="hf-g0wv" class="ln"><span data-hf-id="hf-dc9k" class="in">Done, with</span></span><span data-hf-id="hf-gf7w" class="ln"><span data-hf-id="hf-qtj7" class="in">a smile.</span></span></div>
+
+    <div data-hf-id="hf-fzx0" id="ty-l1" class="tx col label clip" data-start="19.55" data-duration="1.9" data-track-index="1"><span data-hf-id="hf-gtix" class="ln"><span data-hf-id="hf-btd0" class="in">Lyrics</span></span></div>
+    <div data-hf-id="hf-iexy" id="ty-l2" class="tx col label clip" data-start="21.5" data-duration="0.7" data-track-index="1"><span data-hf-id="hf-h7ty" class="ln"><span data-hf-id="hf-bul0" class="in">Focus</span></span></div>
+    <div data-hf-id="hf-l990" id="ty-l3" class="tx col label clip" data-start="22.25" data-duration="0.7" data-track-index="1"><span data-hf-id="hf-hm4z" class="ln"><span data-hf-id="hf-e2qz" class="in">Reminders</span></span></div>
+    <div data-hf-id="hf-itlj" id="ty-l4" class="tx col label clip" data-start="23" data-duration="0.5" data-track-index="1"><span data-hf-id="hf-i0g0" class="ln"><span data-hf-id="hf-wyf0" class="in">Launcher</span></span></div>
+    <div data-hf-id="hf-heot" id="ty-l5" class="tx col label clip" data-start="23.5" data-duration="0.5" data-track-index="1"><span data-hf-id="hf-c1ul" class="ln"><span data-hf-id="hf-2xrf" class="in">Files</span></span></div>
+    <div data-hf-id="hf-cmdd" id="ty-l6" class="tx col label clip" data-start="24" data-duration="0.95" data-track-index="1"><span data-hf-id="hf-cg5m" class="ln"><span data-hf-id="hf-boju" class="in">Clipboard</span></span></div>
+
+    <div data-hf-id="hf-gd0o" id="ty-desk" class="tx col clip" data-start="25.1" data-duration="1.3" data-track-index="1"><span data-hf-id="hf-x2ry" class="ln"><span data-hf-id="hf-do3g" class="in">Your desk,</span></span><span data-hf-id="hf-wogx" class="ln"><span data-hf-id="hf-k8lz" class="in">with a <span data-hf-id="hf-4p82" class="gold">pulse.</span></span></span></div>
+    <div data-hf-id="hf-qp1v" id="ty-free" class="tx col clip" data-start="26.4" data-duration="1.45" data-track-index="1"><span data-hf-id="hf-xve0" class="ln"><span data-hf-id="hf-i1kc" class="in">Free for Windows</span></span><span data-hf-id="hf-xh2z" class="ln"><span data-hf-id="hf-s7lm" class="in">and Mac</span></span><span data-hf-id="hf-03s9" class="ln cta-url"><span data-hf-id="hf-xcpx" class="in url">pulse-bot.dev</span></span></div>
+
+    <div data-hf-id="hf-0ri2" id="ty-end" class="tx end clip" data-start="27.9" data-duration="2.1" data-track-index="1"><span data-hf-id="hf-vhju" class="ln"><span data-hf-id="hf-igul" class="in">Pulse</span></span><span data-hf-id="hf-gkqc" class="ln end-url"><span data-hf-id="hf-qewp" class="in url">pulse-bot.dev</span></span><span data-hf-id="hf-keur" class="ln cta-small"><span data-hf-id="hf-srhy" class="in small">No account. Nothing leaves your computer.</span></span></div>
+  </div>
+
+  <script>
+    (() => {
+      const tl = gsap.timeline({ paused: true });
+      // words slide up out of a mask; they leave as fast as they came
+      const show = (id, at, dur, { fast = false, hold = false } = {}) => {
+        const lines = `#${id} .in`;
+        const inD = fast ? .32 : .5, outD = fast ? .14 : .24;
+        tl.fromTo(lines, { yPercent: 115 }, { yPercent: 0, duration: inD, ease: 'expo.out', stagger: fast ? .03 : .07 }, at);
+        if (!hold) tl.to(lines, { yPercent: -115, duration: outD, ease: 'power3.in', stagger: .025 }, at + dur - outD - .04);
+      };
+      show('ty-meet', .45, 2.1);
+      show('ty-work', 3.15, 1.85);
+      show('ty-check', 5.05, 1.9);
+      show('ty-follow', 7.3, 4.4);
+      show('ty-asks', 13.2, 1.9);
+      show('ty-allow', 15.3, 2.3);
+      show('ty-smile', 18.45, 1);
+      show('ty-l1', 19.55, 1.9, { fast: true });
+      show('ty-l2', 21.5, 0.7, { fast: true });
+      show('ty-l3', 22.25, 0.7, { fast: true });
+      show('ty-l4', 23, 0.5, { fast: true });
+      show('ty-l5', 23.5, 0.5, { fast: true });
+      show('ty-l6', 24, 0.95, { fast: true });
+      show('ty-desk', 25.1, 1.3);
+      show('ty-free', 26.4, 1.45);
+      show('ty-end', 27.9, 2.1, { hold: true });
+      tl.fromTo('#ty-scrim', { opacity: 0 }, { opacity: 1, duration: .3 }, 3);
+      tl.to('#ty-scrim', { opacity: 0, duration: .4 }, 27.6);
+      window.__timelines['type'] = tl;
+    })();
+  </script>
+</template>

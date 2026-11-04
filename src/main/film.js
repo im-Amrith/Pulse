@@ -27,26 +27,9 @@ const LINES = [
   [52.6, 'and let the slow tide take the glow'], [56.8, 'Paper lanterns, paper lanterns'], [61, 'drifting out where the quiet goes'],
 ].map(([t, text]) => ({ t, text }));
 
-async function run({ win, hub, media, lyrics, sys, claude, prefs, push, send, outDir }) {
-  fs.rmSync(outDir, { recursive: true, force: true });
-  fs.mkdirSync(outDir, { recursive: true });
-  const wc = win.webContents;
-  const js = code => wc.executeJavaScript(code, true);
-
-  // fixed, impersonal surroundings
-  prefs.set({ ...prefs.get(), notifications: false, sound: false, autoOpen: true, lyrics: true, termsAccepted: 'film' });
-  claude.status = () => ({ connected: true, statusLine: 'ours' });
-  claude.getModel = () => '';
-  lyrics.update = () => {};
-  sys.state = { wifi: 'on', ssid: 'Studio', signal: 92 };
-  setInterval(() => send('stats', { cpu: 9 + Math.round(Math.random() * 6), ram: 41 }), 2000);
-  push();
-
-  await new Promise(r => (wc.isLoading() ? wc.once('did-finish-load', r) : r()));
-  await sleep(1200);
-
+async function injectCursor(js) {
   // a drawn cursor; moving it sends real mousemove events to whatever is under it
-  await js(`(() => {
+  return js(`(() => {
     const c = document.createElement('div');
     c.id = 'film-cursor';
     c.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24"><path d="M5 3l14 8-6.2 1.6L10 19z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>';
@@ -87,21 +70,53 @@ async function run({ win, hub, media, lyrics, sys, claude, prefs, push, send, ou
       },
     };
   })()`);
-  const cursor = (x, y, ms) => js(`__film.move(${x}, ${y}, ${ms || 700})`);
+}
 
-  // ---------- record ----------
-  const frames = [];
-  let n = 0;
+// Saves every painted frame (raw BGRA, deflated off the main thread) with its time, plus named marks.
+function record(wc, outDir) {
+  const frames = [], marks = [];
+  let n = 0, pending = 0;
   const t0 = Date.now();
-  let pending = 0;
   wc.beginFrameSubscription(false, image => {
     const file = `f${String(n++).padStart(5, '0')}.bgra.z`, { width: w, height: h } = image.getSize();
     frames.push({ file, t: Date.now() - t0, w, h });
     pending++;
     zlib.deflate(image.toBitmap(), { level: 1 }, (err, z) => { if (err) { pending--; return; } fs.writeFile(path.join(outDir, file), z, () => pending--); });
   });
-  const marks = [];
-  const mark = name => marks.push({ name, t: Date.now() - t0 });
+  return {
+    mark: name => marks.push({ name, t: Date.now() - t0 }),
+    async finish(win) {
+      wc.endFrameSubscription();
+      while (pending > 0) await sleep(100);   // let the last writes finish
+      fs.writeFileSync(path.join(outDir, 'frames.json'), JSON.stringify({ frames, marks, scale: win.webContents.zoomFactor }, null, 1));
+      console.log(`FILM done: ${frames.length} frames in ${outDir}`);
+    },
+  };
+}
+
+async function run({ win, hub, media, lyrics, sys, claude, prefs, push, send, outDir }) {
+  fs.rmSync(outDir, { recursive: true, force: true });
+  fs.mkdirSync(outDir, { recursive: true });
+  const wc = win.webContents;
+  const js = code => wc.executeJavaScript(code, true);
+
+  // fixed, impersonal surroundings
+  prefs.set({ ...prefs.get(), notifications: false, sound: false, autoOpen: true, lyrics: true, termsAccepted: 'film' });
+  claude.status = () => ({ connected: true, statusLine: 'ours' });
+  claude.getModel = () => '';
+  lyrics.update = () => {};
+  sys.state = { wifi: 'on', ssid: 'Studio', signal: 92 };
+  setInterval(() => send('stats', { cpu: 9 + Math.round(Math.random() * 6), ram: 41 }), 2000);
+  push();
+
+  await new Promise(r => (wc.isLoading() ? wc.once('did-finish-load', r) : r()));
+  await sleep(1200);
+
+  await injectCursor(js);
+  const cursor = (x, y, ms) => js(`__film.move(${x}, ${y}, ${ms || 700})`);
+
+  const rec = record(wc, outDir);
+  const { mark } = rec;
   const ev = e => hub.handleEvent({ session_id: SID, cwd: CWD, ...e });
 
   // 1. Claude is working: the pill shows the step, the eyes scan
@@ -179,10 +194,169 @@ async function run({ win, hub, media, lyrics, sys, claude, prefs, push, send, ou
   await sleep(800);
   mark('end');
 
-  wc.endFrameSubscription();
-  while (pending > 0) await sleep(100);   // let the last writes finish
-  fs.writeFileSync(path.join(outDir, 'frames.json'), JSON.stringify({ frames, marks, scale: win.webContents.zoomFactor }, null, 1));
-  console.log(`FILM done: ${frames.length} frames in ${outDir}`);
+  await rec.finish(win);
 }
 
-module.exports = { run, FakeMedia };
+
+// ---------- the promo film: every page in the gold theme, one named scene per clip ----------
+//   npm run film -- --promo      (PULSE_FILM=<folder> PULSE_FILM_SCRIPT=promo electron .)
+// Each mark starts a scene that runs until the next mark; scripts/film.js cuts them into transparent clips.
+async function runPromo({ win, hub, media, lyrics, sys, claude, prefs, push, send, clips, history, outDir }) {
+  fs.rmSync(outDir, { recursive: true, force: true });
+  fs.mkdirSync(outDir, { recursive: true });
+  const wc = win.webContents;
+  const js = code => wc.executeJavaScript(code, true);
+  const now = Date.now();
+
+  // fixed, impersonal surroundings and invented content for every page
+  prefs.set({
+    notifications: false, sound: false, autoOpen: false, lyrics: true, termsAccepted: 'film', focusMinutes: 25,
+    theme: { main: '#d28a0f', second: '#000000' },
+    note: '[x] Sketch the landing page\n[ ] Make the navbar sticky\n[ ] Send the brief to the studio\nPick a warmer gold for buttons',
+    reminders: [
+      { id: 'r1', text: 'Design stand-up', at: now + 45 * 60_000, done: false, fired: false },
+      { id: 'r2', text: 'Water the plants', at: now + 3 * 3600_000, done: false, fired: false },
+    ],
+    pins: [
+      { id: 'p1', type: 'url', name: 'Notes', target: 'https://example.com/notes' },
+      { id: 'p2', type: 'url', name: 'Terminal', target: 'https://example.com/terminal' },
+      { id: 'p3', type: 'url', name: 'Design', target: 'https://example.com/design' },
+      { id: 'p4', type: 'url', name: 'Mail', target: 'https://example.com/mail' },
+      { id: 'p5', type: 'url', name: 'Music', target: 'https://example.com/music' },
+    ],
+    shelf: [
+      { path: 'C:\\demo\\brief.pdf', name: 'brief.pdf', at: now - 60_000 },
+      { path: 'C:\\demo\\logo.png', name: 'logo.png', at: now - 120_000 },
+      { path: 'C:\\demo\\moodboard.fig', name: 'moodboard.fig', at: now - 300_000 },
+    ],
+  });
+  history.clear();
+  clips.items = [
+    { text: 'npm run dev', at: now - 40_000 },
+    { text: '#D28A0F', at: now - 3 * 60_000 },
+    { text: 'backdrop-filter: blur(14px);', at: now - 9 * 60_000 },
+    { text: 'See you at the studio at 4', at: now - 26 * 60_000 },
+  ];
+  claude.status = () => ({ connected: true, statusLine: 'ours' });
+  claude.getModel = () => '';
+  lyrics.update = () => {};
+  sys.state = { wifi: 'on', ssid: 'Studio', signal: 92 };
+  setInterval(() => send('stats', { cpu: 9 + Math.round(Math.random() * 6), ram: 41 }), 2000);
+  push();
+
+  await new Promise(r => (wc.isLoading() ? wc.once('did-finish-load', r) : r()));
+  await js('localStorage.clear(); F = {}; timers = []; render()');
+  await sleep(1500);
+  await injectCursor(js);
+  const cursor = (x, y, ms) => js(`__film.move(${x}, ${y}, ${ms || 700})`);
+  const page = id => js(`go(${JSON.stringify(id)})`);
+
+  const rec = record(wc, outDir);
+  const { mark } = rec;
+  const ev = e => hub.handleEvent({ session_id: SID, cwd: CWD, ...e });
+
+  // idle: the folded pill, blinking
+  mark('idle');
+  await sleep(6000);
+
+  // working: the pill follows the session
+  mark('working');
+  ev({ hook_event_name: 'SessionStart' });
+  ev({ hook_event_name: 'UserPromptSubmit', prompt: 'Make the navbar sticky and give it a soft blur' });
+  await sleep(1000);
+  ev({ hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: `${CWD}\\src\\components\\Navbar.tsx` } });
+  await sleep(1800);
+  ev({ hook_event_name: 'PostToolUse', tool_name: 'Read' });
+  ev({ hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: `${CWD}\\src\\components\\Navbar.tsx`,
+    old_string: '<nav className="nav">', new_string: '<nav className="nav sticky top-0 backdrop-blur-md bg-black/40">' } });
+  await sleep(2000);
+
+  // unfold: hover opens the live view, the diff writes
+  mark('unfold');
+  await js('current = "claude"; __film.jump(560, 260); __film.show(true)');
+  await cursor(372, 22, 800);
+  await sleep(300);
+  await js('if (!open) setOpen(true, { to: "claude" })');
+  await sleep(400);
+  ev({ hook_event_name: 'PostToolUse', tool_name: 'Edit' });
+  ev({ hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: `${CWD}\\src\\styles\\nav.css`,
+    old_string: '.nav {\n  position: relative;', new_string: '.nav {\n  position: sticky;\n  top: 0;\n  backdrop-filter: blur(14px);' } });
+  await sleep(3200);
+  ev({ hook_event_name: 'PostToolUse', tool_name: 'Edit' });
+  await cursor(620, 520, 700);
+  await js('__film.show(false)');
+  await sleep(1200);
+
+  // ask: the pill widens with a notice, hover shows the request, one click allows it
+  mark('ask');
+  const cmd = 'npm install @radix-ui/react-dialog';
+  ev({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: cmd } });
+  const fakeRes = new EventEmitter(); fakeRes.writeHead = () => fakeRes; fakeRes.end = () => fakeRes;
+  hub.handleEvent({ session_id: SID, cwd: CWD, hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: cmd } }, fakeRes);
+  await sleep(2000);
+  await js('current = "claude"; __film.jump(560, 240); __film.show(true)');
+  await cursor(372, 22, 700);
+  await sleep(300);
+  await js('if (!open) setOpen(true, { to: "claude" })');
+  await sleep(1300);
+  await js(`__film.clickText('Allow')`);
+  await sleep(700);
+  await cursor(620, 520, 600);
+  await js('__film.show(false)');
+  ev({ hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_response: { stdout: 'added 3 packages in 2s\nfound 0 vulnerabilities' } });
+  await sleep(900);
+
+  // done: it folds up and smiles
+  mark('done');
+  ev({ hook_event_name: 'Stop', last_assistant_message: 'The navbar now sticks to the top with a soft blur behind it.' });
+  await sleep(4500);
+
+  // lyrics: the pill widens and sings along
+  mark('lyrics');
+  hub.acknowledge();
+  const art = await js('__film.art()');
+  lyrics.current = { key: `${SONG.artist}\u0000${SONG.title}`, lines: LINES };
+  media.set({ active: true, app: 'Music', title: SONG.title, artist: SONG.artist, playing: true,
+    position: 39.6, duration: SONG.duration, art, updatedAt: Date.now() });
+  await sleep(5500);
+
+  // music: one hover away
+  mark('music');
+  await js('current = "music"; __film.jump(560, 240); __film.show(true)');
+  await cursor(380, 22, 700);
+  await sleep(300);
+  await js('if (!open) setOpen(true, { to: "music" })');
+  await cursor(520, 300, 600);
+  await js('__film.show(false)');
+  await sleep(3000);
+
+  // the other pages, each held long enough to cut a beat from
+  mark('time');
+  await page('time');
+  await sleep(500);
+  await js('__film.show(true)');
+  await js(`__film.clickText('Start')`);
+  await sleep(300);
+  await cursor(560, 330, 400);
+  await js('__film.show(false)');
+  await sleep(2400);
+  for (const id of ['plan', 'launcher', 'tray', 'clipboard']) {
+    mark(id);
+    await page(id);
+    await sleep(2800);
+  }
+
+  // fold: everything stops and it folds back to the idle pill
+  mark('fold');
+  media.set({ active: false });
+  await js('focusReset()');
+  await js('__film.jump(620, 520)');
+  await js('setOpen(false)');
+  await sleep(2500);
+  mark('idle2');
+  await sleep(6000);
+  mark('end');
+  await rec.finish(win);
+}
+
+module.exports = { run: opts => (process.env.PULSE_FILM_SCRIPT === 'promo' ? runPromo(opts) : run(opts)), FakeMedia };

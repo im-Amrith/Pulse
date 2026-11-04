@@ -1,0 +1,320 @@
+<template>
+  <style>
+    #stage { position: absolute; inset: 0; overflow: hidden; background: #050505; }
+    /* the room: a dark wall meeting a desk, one warm pool of light behind the laptop */
+    #st-room { position: absolute; inset: 0;
+      background:
+        radial-gradient(900px 520px at 50% 34%, rgba(210, 138, 15, .10), transparent 70%),
+        linear-gradient(180deg, #0b0b0d 0%, #0d0d0f 70%, #141416 70.1%, #0f0f11 100%); }
+    #st-desk-sheen { position: absolute; left: 0; right: 0; top: 756px; height: 324px;
+      background: radial-gradient(1100px 200px at 50% 0%, rgba(245, 241, 232, .05), transparent 70%); }
+    #st-grain { position: absolute; inset: 0; opacity: .05; mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7'/></filter><rect width='240' height='240' filter='url(%23n)'/></svg>"); }
+
+    #st-cam { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 960px 540px; }
+    #st-shadow { position: absolute; left: 260px; top: 880px; width: 1400px; height: 90px; border-radius: 50%;
+      background: radial-gradient(closest-side, rgba(0, 0, 0, .75), rgba(0, 0, 0, .35) 60%, transparent); }
+    #st-rig { position: absolute; inset: 0; perspective: 6000px; perspective-origin: 960px 160px; }
+    #st-laptop { position: absolute; inset: 0; transform-style: preserve-3d; transform-origin: 960px 520px; }
+
+    /* lid: graphite shell, black bezel, 16:9 glass that is a 1536x864 display at 0.80729 */
+    #st-lid { position: absolute; left: 310px; top: 40px; width: 1300px; height: 757px; border-radius: 22px 22px 8px 8px;
+      background: linear-gradient(180deg, #3a3b3f, #2a2b2f 40%, #232427); padding: 2px; }
+    #st-bezel { position: absolute; inset: 2px; border-radius: 20px 20px 6px 6px; background: #050506;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04); }
+    #st-cam-dot { position: absolute; left: 646px; top: 11px; width: 8px; height: 8px; border-radius: 50%;
+      background: radial-gradient(circle at 40% 35%, #2b3442, #0b0d12 70%); box-shadow: 0 0 0 2px #0d0e10; }
+    #st-glass { position: absolute; left: 30px; top: 26px; width: 1240px; height: 697.5px; overflow: hidden; background: #000; }
+    #st-screen { position: absolute; left: 0; top: 0; width: 1536px; height: 864px; transform: scale(.807292); transform-origin: 0 0; overflow: hidden; }
+    #st-reflect { position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(115deg, rgba(255, 255, 255, .055) 0%, rgba(255, 255, 255, .02) 28%, transparent 28.2%, transparent 62%, rgba(255, 255, 255, .025) 62.2%, transparent 80%); }
+    #st-lid-lip { position: absolute; left: 0; right: 0; bottom: -2px; height: 6px; border-radius: 0 0 8px 8px; background: linear-gradient(180deg, #1c1d20, #3c3d41); }
+
+    /* deck: a horizontal plane hinged at the bottom of the lid, seen from above */
+    #st-deck { position: absolute; left: 290px; top: 797px; width: 1340px; height: 900px; transform-origin: 50% 0; transform: rotateX(90deg);
+      border-radius: 6px 6px 26px 26px; background: linear-gradient(180deg, #2c2d31 0%, #333438 60%, #3a3b40 100%);
+      box-shadow: inset 0 -3px 0 rgba(255, 255, 255, .10); }
+    #st-keys { position: absolute; left: 150px; right: 150px; top: 70px; height: 380px; border-radius: 10px; background-color: #1a1b1e;
+      background-image: repeating-linear-gradient(90deg, transparent 0 6px, #26272b 6px 74px), repeating-linear-gradient(0deg, transparent 0 6px, #1a1b1e 6px 70px); opacity: .9; }
+    #st-pad { position: absolute; left: 430px; width: 480px; top: 500px; height: 330px; border-radius: 16px; background: #2f3034; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+
+    /* ---- the fake desktop (1536 x 864 logical) ---- */
+    #st-wall { position: absolute; inset: 0; background: #070605; }
+    #st-wall svg { position: absolute; inset: 0; }
+    .st-win { position: absolute; border-radius: 12px; overflow: hidden; background: #111113; box-shadow: 0 24px 60px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .07);
+      font: 13px/1.55 "JetBrains Mono", monospace; color: #cfc9bd; }
+    .st-bar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #19191c; border-bottom: 1px solid rgba(255, 255, 255, .05);
+      font: 600 12.5px/1 Inter, sans-serif; color: #a39e93; }
+    .st-dots { display: flex; gap: 6px; margin-right: 8px; } .st-dots i { width: 10px; height: 10px; border-radius: 50%; background: #333338; display: block; }
+    #st-editor { left: 96px; top: 96px; width: 780px; height: 560px; }
+    #st-editor .st-body { display: grid; grid-template-columns: 170px 1fr; height: calc(100% - 34px); }
+    #st-tree { background: #0e0e10; padding: 14px 12px; font: 12.5px/2 Inter, sans-serif; color: #7d786f; }
+    #st-tree b { color: #f5f1e8; font-weight: 500; background: rgba(210, 138, 15, .14); border-radius: 5px; padding: 1px 6px; margin-left: -6px; }
+    #st-code { padding: 14px 18px; white-space: pre; }
+    #st-code .n { color: #4c4943; display: inline-block; width: 26px; } .k { color: #d28a0f; } .s { color: #b9c48a; } .t { color: #e3a84a; } .c { color: #5e5a52; }
+    #st-term { left: 690px; top: 300px; width: 760px; height: 450px; background: #0c0c0d; }
+    #st-term-view { position: absolute; left: 0; right: 0; top: 34px; bottom: 0; overflow: hidden; }
+    #st-term-lines { padding: 14px 18px; }
+    #st-term-lines div { white-space: pre; }
+    .g { color: #79e0b6; } .a { color: #d28a0f; } .m { color: #6f6a61; } .w { color: #f5f1e8; }
+    #st-notes { left: 470px; top: 150px; width: 820px; height: 560px; background: #141416; font: 15px/1.7 Inter, sans-serif; color: #a39e93; }
+    #st-notes .st-doc { padding: 34px 48px; }
+    #st-notes h4 { font: 700 28px/1.2 Inter, sans-serif; color: #f5f1e8; margin-bottom: 18px; }
+    .st-line { height: 11px; border-radius: 6px; background: #26262a; margin: 13px 0; }
+    .st-img { height: 150px; border-radius: 10px; margin: 22px 0; background: linear-gradient(120deg, #3a2405, #d28a0f 55%, #1b1206); opacity: .85; }
+    #st-dim { position: absolute; inset: 0; background: #000; opacity: 0; }
+    #st-notes, #st-t2, #st-t3 { opacity: 0; }
+    #st-notes { z-index: 2; }
+    #st-taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 46px; background: rgba(18, 16, 14, .86); border-top: 1px solid rgba(255, 255, 255, .06);
+      display: flex; align-items: center; justify-content: center; gap: 10px; }
+    #st-taskbar i { width: 28px; height: 28px; border-radius: 8px; background: #2a2926; display: block; }
+    #st-taskbar i.on { background: #3a3326; box-shadow: inset 0 -2px 0 #d28a0f; }
+    #st-clock { position: absolute; right: 18px; top: 0; bottom: 0; width: 80px; font: 600 13px/46px Inter, sans-serif; color: #f5f1e8; text-align: right; }
+    #st-clock span { position: absolute; right: 0; top: 0; }
+    #st-sveil { position: absolute; inset: 0; background: #000; opacity: 0; }
+    /* the island window: 720 x 560 logical, hanging from the top centre (x = 408) */
+    .st-isl { position: absolute; left: 408px; top: 0; width: 720px; height: 560px; }
+    #st-hook-wrap { position: absolute; left: 408px; top: 0; width: 720px; height: 560px; clip-path: inset(27px 356px 529px 356px round 2px); }
+    #st-hook-wrap video { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    /* darkness over the whole world, with a hole where the pill sits (hook and end card) */
+    #st-wveil { position: absolute; left: -2000px; top: -2000px; width: 5920px; height: 5080px; background: #000;
+      -webkit-mask-image: radial-gradient(200px 52px at 2960px 2089px, transparent 58%, #000 100%);
+      mask-image: radial-gradient(200px 52px at 2960px 2089px, transparent 58%, #000 100%); }
+    #st-spark { position: absolute; left: 950px; top: 79px; width: 20px; height: 20px; border-radius: 50%;
+      background: radial-gradient(circle, #ffe2a8 0%, #d28a0f 35%, rgba(210, 138, 15, 0) 70%); }
+  </style>
+
+  <div id="stage" data-composition-id="stage" data-width="1920" data-height="1080">
+    <div id="st-room"></div>
+    <div id="st-desk-sheen"></div>
+    <div id="st-cam">
+      <div id="st-shadow"></div>
+      <div id="st-rig">
+        <div id="st-laptop">
+          <div id="st-deck"><div id="st-keys"></div><div id="st-pad"></div></div>
+          <div id="st-lid">
+            <div id="st-bezel">
+              <div id="st-cam-dot"></div>
+              <div id="st-glass">
+                <div id="st-screen">
+                  <div id="st-wall">
+                    <svg viewBox="0 0 1536 864" preserveAspectRatio="none">
+                      <defs>
+                        <radialGradient id="st-w1" cx="22%" cy="85%" r="70%"><stop offset="0" stop-color="#8a4f06" stop-opacity=".75"/><stop offset=".55" stop-color="#3a1f03" stop-opacity=".45"/><stop offset="1" stop-color="#070605" stop-opacity="0"/></radialGradient>
+                        <radialGradient id="st-w2" cx="88%" cy="12%" r="55%"><stop offset="0" stop-color="#d28a0f" stop-opacity=".30"/><stop offset="1" stop-color="#070605" stop-opacity="0"/></radialGradient>
+                        <linearGradient id="st-w3" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#d28a0f" stop-opacity="0"/><stop offset=".5" stop-color="#e9a43a" stop-opacity=".55"/><stop offset="1" stop-color="#d28a0f" stop-opacity="0"/></linearGradient>
+                      </defs>
+                      <rect width="1536" height="864" fill="url(#st-w1)"/>
+                      <rect width="1536" height="864" fill="url(#st-w2)"/>
+                      <path d="M-40 640 C 300 520, 560 760, 900 610 S 1400 420, 1600 520" fill="none" stroke="url(#st-w3)" stroke-width="2.2"/>
+                      <path d="M-40 680 C 320 560, 580 800, 920 650 S 1420 470, 1600 560" fill="none" stroke="url(#st-w3)" stroke-width="1.2" opacity=".6"/>
+                      <path d="M-40 720 C 340 610, 600 830, 940 700 S 1440 520, 1600 610" fill="none" stroke="url(#st-w3)" stroke-width=".8" opacity=".4"/>
+                    </svg>
+                  </div>
+
+                  <div id="st-editor" class="st-win">
+                    <div class="st-bar"><div class="st-dots"><i></i><i></i><i></i></div>Navbar.tsx — acme-site</div>
+                    <div class="st-body">
+                      <div id="st-tree">src<br>&nbsp;&nbsp;components<br>&nbsp;&nbsp;&nbsp;&nbsp;<b>Navbar.tsx</b><br>&nbsp;&nbsp;&nbsp;&nbsp;Logo.tsx<br>&nbsp;&nbsp;&nbsp;&nbsp;Footer.tsx<br>&nbsp;&nbsp;styles<br>&nbsp;&nbsp;&nbsp;&nbsp;nav.css<br>&nbsp;&nbsp;app.tsx<br>package.json</div>
+<div id="st-code"><span class="n">1</span><span class="k">import</span> { useState } <span class="k">from</span> <span class="s">"react"</span>;
+<span class="n">2</span><span class="k">import</span> { Logo } <span class="k">from</span> <span class="s">"./Logo"</span>;
+<span class="n">3</span>
+<span class="n">4</span><span class="k">export function</span> <span class="t">Navbar</span>() {
+<span class="n">5</span>  <span class="k">const</span> [open, setOpen] = <span class="t">useState</span>(<span class="k">false</span>);
+<span class="n">6</span>  <span class="k">return</span> (
+<span class="n">7</span>    &lt;<span class="t">nav</span> className=<span class="s">"nav"</span>&gt;
+<span class="n">8</span>      &lt;<span class="t">Logo</span> /&gt;
+<span class="n">9</span>      &lt;<span class="t">ul</span> className=<span class="s">"nav-links"</span>&gt;
+<span class="n">10</span>        &lt;<span class="t">li</span>&gt;&lt;<span class="t">a</span> href=<span class="s">"/work"</span>&gt;Work&lt;/<span class="t">a</span>&gt;&lt;/<span class="t">li</span>&gt;
+<span class="n">11</span>        &lt;<span class="t">li</span>&gt;&lt;<span class="t">a</span> href=<span class="s">"/studio"</span>&gt;Studio&lt;/<span class="t">a</span>&gt;&lt;/<span class="t">li</span>&gt;
+<span class="n">12</span>        &lt;<span class="t">li</span>&gt;&lt;<span class="t">a</span> href=<span class="s">"/contact"</span>&gt;Contact&lt;/<span class="t">a</span>&gt;&lt;/<span class="t">li</span>&gt;
+<span class="n">13</span>      &lt;/<span class="t">ul</span>&gt;
+<span class="n">14</span>      &lt;<span class="t">button</span> onClick={() =&gt; <span class="t">setOpen</span>(!open)}&gt;Menu&lt;/<span class="t">button</span>&gt;
+<span class="n">15</span>    &lt;/<span class="t">nav</span>&gt;
+<span class="n">16</span>  );
+<span class="n">17</span>}
+<span class="n">18</span>
+<span class="n">19</span><span class="c">// TODO: keep the bar on screen while scrolling</span></div>
+                    </div>
+                  </div>
+
+                  <div id="st-notes" class="st-win">
+                    <div class="st-bar"><div class="st-dots"><i></i><i></i><i></i></div>Design notes</div>
+                    <div class="st-doc">
+                      <h4>Spring launch — homepage</h4>
+                      <div class="st-line" style="width:92%"></div><div class="st-line" style="width:84%"></div><div class="st-line" style="width:66%"></div>
+                      <div class="st-img"></div>
+                      <div class="st-line" style="width:88%"></div><div class="st-line" style="width:72%"></div><div class="st-line" style="width:80%"></div>
+                    </div>
+                  </div>
+
+                  <div id="st-term" class="st-win">
+                    <div class="st-bar"><div class="st-dots"><i></i><i></i><i></i></div>Terminal — acme-site</div>
+                    <div id="st-term-view"><div id="st-term-lines">
+                      <div><span class="m">~/acme-site $</span> <span class="w">claude</span></div>
+                      <div> </div>
+                      <div><span class="a">&gt;</span> <span class="w">Make the navbar sticky and give it a soft blur</span></div>
+                      <div> </div>
+                      <div><span class="g">●</span> Read(src/components/Navbar.tsx)</div>
+                      <div><span class="m">  └ Read 19 lines</span></div>
+                      <div><span class="g">●</span> Search(pattern: "position:")</div>
+                      <div><span class="m">  └ Found 3 files</span></div>
+                      <div><span class="g">●</span> Read(src/styles/nav.css)</div>
+                      <div><span class="m">  └ Read 42 lines</span></div>
+                      <div><span class="a">●</span> Thinking about the blur and stacking order…</div>
+                      <div><span class="g">●</span> Update(src/components/Navbar.tsx)</div>
+                      <div><span class="m">  └ 1 line changed</span></div>
+                      <div><span class="g">●</span> Update(src/styles/nav.css)</div>
+                      <div><span class="m">  └ 3 lines added, 1 removed</span></div>
+                      <div><span class="g">●</span> Search(pattern: "z-index")</div>
+                      <div><span class="m">  └ Found 2 files</span></div>
+                      <div><span class="g">●</span> Read(src/components/Footer.tsx)</div>
+                      <div><span class="m">  └ Read 31 lines</span></div>
+                      <div><span class="a">●</span> Checking the mobile menu still opens…</div>
+                      <div><span class="g">●</span> Update(src/app.tsx)</div>
+                      <div><span class="m">  └ 2 lines changed</span></div>
+                      <div><span class="a">●</span> Working… <span class="m">(esc to interrupt)</span></div>
+                    </div></div>
+                  </div>
+
+                  <div id="st-dim"></div>
+                  <div id="st-taskbar"><i></i><i class="on"></i><i></i><i></i><i></i>
+                    <div id="st-clock"><span id="st-t1">2:14 PM</span><span id="st-t2">2:31 PM</span><span id="st-t3">2:47 PM</span></div>
+                  </div>
+                  <div id="st-sveil"></div>
+
+                  <!-- the real island, recorded from Pulse in film mode (transparent, 2x) -->
+                  <div id="st-hook-wrap">
+                    <video id="st-v-idle" class="clip" src="assets/island/idle.webm" data-start="0" data-duration="3.4" data-media-start="0.2" data-track-index="3" muted playsinline></video>
+                  </div>
+                  <video id="st-v-working" class="clip st-isl" src="assets/island/working.webm" data-start="7" data-duration="1.6" data-media-start="1.0" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-unfold" class="clip st-isl" src="assets/island/unfold.webm" data-start="8.6" data-duration="4.4" data-media-start="0" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-ask1" class="clip st-isl" src="assets/island/ask.webm" data-start="13" data-duration="4.8" data-media-start="0.5" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-ask2" class="clip st-isl" src="assets/island/ask.webm" data-start="17.8" data-duration="0.6" data-media-start="6.4" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-done" class="clip st-isl" src="assets/island/done.webm" data-start="18.4" data-duration="1.1" data-media-start="0" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-lyrics" class="clip st-isl" src="assets/island/lyrics.webm" data-start="19.5" data-duration="1" data-media-start="0.5" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-music" class="clip st-isl" src="assets/island/music.webm" data-start="20.5" data-duration="1" data-media-start="0.7" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-time" class="clip st-isl" src="assets/island/time.webm" data-start="21.5" data-duration="0.75" data-media-start="1.6" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-plan" class="clip st-isl" src="assets/island/plan.webm" data-start="22.25" data-duration="0.75" data-media-start="0.6" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-launcher" class="clip st-isl" src="assets/island/launcher.webm" data-start="23" data-duration="0.5" data-media-start="0.6" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-tray" class="clip st-isl" src="assets/island/tray.webm" data-start="23.5" data-duration="0.5" data-media-start="0.6" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-clipboard" class="clip st-isl" src="assets/island/clipboard.webm" data-start="24" data-duration="1" data-media-start="0.6" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-fold" class="clip st-isl" src="assets/island/fold.webm" data-start="25" data-duration="2.5" data-media-start="0" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-idle2" class="clip st-isl" src="assets/island/idle2.webm" data-start="27.5" data-duration="2.5" data-media-start="1.5" data-track-index="3" muted playsinline></video>
+                </div>
+                <div id="st-reflect"></div>
+              </div>
+            </div>
+            <div id="st-lid-lip"></div>
+          </div>
+        </div>
+      </div>
+      <div id="st-wveil"></div>
+      <div id="st-spark"></div>
+    </div>
+    <div id="st-grain"></div>
+  </div>
+
+  <script>
+    (() => {
+      const tl = gsap.timeline({ paused: true });
+      // Camera: scale s around the frame centre, looking at world point (px, py). World = 1920x1080 with the laptop frontal.
+      // A screen point (x, y) in the 1536x864 display sits at world (340 + x*k, 66 + y*k).
+      const k = 0.807292, C = [960, 540];
+      const W = (x, y) => [340 + x * k, 66 + y * k];
+      const cam = (px, py, s) => ({ x: -s * (px - C[0]), y: -s * (py - C[1]), scale: s });
+      const go = (at, dur, p, s, ease = 'power3.inOut') => tl.to('#st-cam', { ...cam(p[0], p[1], s), duration: dur, ease }, at);
+      const set = (at, p, s) => tl.set('#st-cam', cam(p[0], p[1], s), at);
+      const turn = (at, dur, deg, ease = 'power3.inOut') => tl.to('#st-laptop', { rotationY: deg, duration: dur, ease }, at);
+      // Framing per layout. Landscape keeps a text column on the left, so the laptop and close-ups sit right of centre;
+      // the vertical cut puts text below, so everything is centred. [world x, world y, scale]
+      const LAYOUT = 'landscape';
+      const F = LAYOUT === 'vertical' ? {
+        FULL: [960, 470, 1], WIDE: [850, 480, .9], HOOK: [960, 116, 2.6], END: [960, 116, 2.6], PILL: [960, 110, 2.6],
+        PANEL: [960, 215, 1.9], CARD: [950, 175, 1.9], TERM: [1110, 520, 1.75],
+      } : {
+        FULL: [740, 470, .82], WIDE: [740, 480, .74], HOOK: [960, 130, 2.6], END: [960, 116, 2.6], PILL: [872, 110, 2.6],
+        PANEL: [855, 239, 2.2], CARD: [869, 200, 2.4], TERM: [1022, 489, 1.55],
+      };
+      const g = (at, dur, key, mul = 1, ease) => go(at, dur, F[key].slice(0, 2), F[key][2] * mul, ease);
+      const s0 = (at, key, mul = 1) => set(at, F[key].slice(0, 2), F[key][2] * mul);
+
+      // starting state
+      tl.set('#st-laptop', { rotationY: 0 }, 0);
+      s0(0, 'HOOK');
+      tl.fromTo(['#st-sveil', '#st-wveil'], { opacity: 1 }, { opacity: 1, duration: .02 }, 0);
+      tl.fromTo('#st-dim', { opacity: .28 }, { opacity: .28, duration: .02 }, 0);
+
+      // 1. hook: a gold spark opens into the pill, then the camera pulls back to a 3/4 laptop
+      // (vertical: the spark is already lit on frame 0, because frame 0 is the thumbnail)
+      tl.fromTo('#st-spark', { scale: LAYOUT === 'vertical' ? 1 : .2, opacity: LAYOUT === 'vertical' ? 1 : 0 }, { scale: 1.4, opacity: 1, duration: .35, ease: 'power2.out' }, .05);
+      tl.to('#st-spark', { scale: 9, scaleY: 1.6, opacity: 0, duration: .45, ease: 'expo.out' }, .4);
+      tl.fromTo('#st-hook-wrap', { clipPath: 'inset(27px 356px 529px 356px round 2px)' },
+        { clipPath: 'inset(10px 234px 512px 234px round 19px)', duration: .55, ease: 'expo.out' }, .38);
+      tl.to('#st-hook-wrap', { clipPath: 'inset(0px 0px 0px 0px round 0px)', duration: .01 }, 1.0);
+      tl.to(['#st-wveil', '#st-sveil'], { opacity: 0, duration: 1.0, ease: 'power2.inOut' }, 1.2);
+      g(1.2, 1.8, 'WIDE');
+      turn(1.75, 1.25, -24, 'power2.inOut');
+
+      // 2. problem: hard cut to the terminal; the clock jumps while the work goes on
+      tl.set('#st-laptop', { rotationY: 0 }, 3);
+      s0(3, 'TERM');
+      tl.set('#st-dim', { opacity: 0 }, 3);
+      g(3, 2, 'TERM', 1.02, 'none');
+      tl.set('#st-editor', { opacity: .45 }, 3);
+      tl.set('#st-term-lines', { y: 0 }, 2.9);
+      tl.to('#st-term-lines', { y: -150, duration: 2, ease: 'none' }, 3);
+      tl.set('#st-notes', { opacity: 1 }, 5);
+      tl.set('#st-term', { opacity: .55 }, 5);
+      tl.set('#st-t1', { opacity: 0 }, 5);
+      tl.set('#st-t2', { opacity: 1 }, 5);
+      g(5, 1, 'TERM', 1.04, 'none');
+      tl.set('#st-notes', { opacity: 0 }, 6);
+      tl.set('#st-term', { opacity: 1 }, 6);
+      tl.set('#st-t2', { opacity: 0 }, 6);
+      tl.set('#st-t3', { opacity: 1 }, 6);
+      tl.set('#st-term-lines', { y: -230 }, 6);
+      tl.to('#st-term-lines', { y: -300, duration: 1, ease: 'none' }, 6);
+      g(6, 1, 'TERM', 1.06, 'none');
+      tl.set('#st-editor', { opacity: 1 }, 7);
+
+      // 3. follow Claude live: full laptop, pill at true size, hover unfolds, dolly in, back out
+      s0(7, 'FULL');
+      tl.set('#st-dim', { opacity: .28 }, 7);
+      tl.set('#st-term-lines', { y: -150 }, 7);
+      g(7, 2.9, 'FULL', 1.03, 'none');
+      g(9.9, .6, 'PANEL');
+      g(10.5, 1.3, 'PANEL', 1.03, 'none');
+      g(11.8, .6, 'FULL');
+
+      // 4. allow in one click
+      g(13, 2.2, 'FULL', 1.05, 'none');
+      g(15.2, .6, 'CARD');
+      g(15.8, 1.8, 'CARD', 1.03, 'none');
+      g(17.6, .5, 'FULL');
+      g(18.4, .5, 'PILL');
+      g(18.9, .6, 'PILL', 1.03, 'none');
+
+      // 5. montage: true size first, then short dolly-ins on each page
+      s0(19.5, 'FULL');
+      g(19.5, 1.6, 'FULL', 1.03, 'none');
+      g(21.1, .4, 'PANEL', .92, 'power3.out');
+      const pages = [[21.5, .75, 1], [22.25, .75, .92], [23, .5, 1], [23.5, .5, .92], [24, 1, 1]];
+      for (const [at, d, m] of pages) { s0(at, 'PANEL', m); g(at, d, 'PANEL', m * 1.03, 'none'); }
+
+      // 6. call to action: 3/4 wide, orbit to frontal, then into the pill for the end mark
+      s0(25, 'WIDE');
+      tl.set('#st-laptop', { rotationY: -24 }, 25);
+      turn(25, 2, 0);
+      g(25, 2, 'FULL');
+      g(27, .6, 'FULL', 1.015, 'none');
+      g(27.6, .6, 'END');
+      tl.to('#st-sveil', { opacity: 1, duration: .5, ease: 'power2.inOut' }, 27.75);
+      tl.to('#st-wveil', { opacity: 1, duration: .5, ease: 'power2.inOut' }, 27.75);
+      g(28.2, 1.8, 'END', 1.03, 'none');
+
+      window.__timelines['stage'] = tl;
+    })();
+  </script>
+</template>

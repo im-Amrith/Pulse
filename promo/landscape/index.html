@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1920, height=1080" />
+  <title>Pulse promo</title>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+  </style>
+</head>
+<body>
+  <div data-hf-id="hf-j7pz" id="root" data-composition-id="main" data-start="0" data-duration="30" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-mq8j" id="stage" data-composition-id="stage" data-composition-src="compositions/stage.html" data-start="0" data-duration="30" data-track-index="0" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+    <div data-hf-id="hf-zek6" id="type" data-composition-id="type" data-composition-src="compositions/type.html" data-start="0" data-duration="30" data-track-index="1" data-track-kind="graphics" data-width="1920" data-height="1080"></div>
+        <!-- sound: an original 120 BPM bed (shared/make_audio.py), the app's own chimes, soft ticks on unfold, whooshes on dolly-ins -->
+    <audio data-hf-id="hf-gvzu" id="music" class="clip" src="assets/audio/music.wav" data-start="0" data-duration="30" data-track-index="5" data-volume="0.85"></audio>
+    <audio data-hf-id="hf-3pvg" id="sfx-whoosh-1" class="clip" src="assets/audio/whoosh-short.mp3" data-start="1.15" data-duration="0.57" data-track-index="6" data-volume="0.45"></audio>
+    <audio data-hf-id="hf-l8bl" id="sfx-whoosh-2" class="clip" src="assets/audio/whoosh-short.mp3" data-start="9.85" data-duration="0.57" data-track-index="6" data-volume="0.35"></audio>
+    <audio data-hf-id="hf-bt50" id="sfx-whoosh-3" class="clip" src="assets/audio/whoosh-short.mp3" data-start="15.15" data-duration="0.57" data-track-index="6" data-volume="0.35"></audio>
+    <audio data-hf-id="hf-wo7u" id="sfx-whoosh-4" class="clip" src="assets/audio/whoosh-short.mp3" data-start="18.35" data-duration="0.57" data-track-index="6" data-volume="0.35"></audio>
+    <audio data-hf-id="hf-g93m" id="sfx-whoosh-5" class="clip" src="assets/audio/whoosh-short.mp3" data-start="21.05" data-duration="0.57" data-track-index="6" data-volume="0.35"></audio>
+    <audio data-hf-id="hf-ne19" id="sfx-whoosh-6" class="clip" src="assets/audio/whoosh-short.mp3" data-start="24.95" data-duration="0.57" data-track-index="6" data-volume="0.35"></audio>
+    <audio data-hf-id="hf-7h6v" id="sfx-whoosh-7" class="clip" src="assets/audio/whoosh-short.mp3" data-start="27.85" data-duration="0.57" data-track-index="6" data-volume="0.45"></audio>
+    <audio data-hf-id="hf-zdsn" id="sfx-tick-1" class="clip" src="assets/audio/tick.wav" data-start="9.8" data-duration="0.06" data-track-index="7" data-volume="0.35"></audio>
+    <audio data-hf-id="hf-p45p" id="sfx-tick-2" class="clip" src="assets/audio/tick.wav" data-start="15.15" data-duration="0.06" data-track-index="7" data-volume="0.35"></audio>
+    <audio data-hf-id="hf-ifb4" id="sfx-tick-3" class="clip" src="assets/audio/tick.wav" data-start="20.8" data-duration="0.06" data-track-index="7" data-volume="0.35"></audio>
+    <audio data-hf-id="hf-0kbj" id="sfx-tick-4" class="clip" src="assets/audio/tick.wav" data-start="18.45" data-duration="0.06" data-track-index="7" data-volume="0.35"></audio>
+    <audio data-hf-id="hf-fshz" id="sfx-ask" class="clip" src="assets/audio/chime-ask.wav" data-start="13.05" data-duration="0.83" data-track-index="8" data-volume="0.3"></audio>
+    <audio data-hf-id="hf-k38x" id="sfx-click" class="clip" src="assets/audio/click-soft.mp3" data-start="17.5" data-duration="0.37" data-track-index="7" data-volume="0.5"></audio>
+    <audio data-hf-id="hf-jf0h" id="sfx-allow" class="clip" src="assets/audio/chime-done.wav" data-start="17.55" data-duration="0.72" data-track-index="8" data-volume="0.45"></audio>
+
+  </div>
+  <script>
+    window.__timelines = window.__timelines || {};
+    window.__timelines["main"] = gsap.timeline({ paused: true });
+  </script>
+</body>
+</html>
