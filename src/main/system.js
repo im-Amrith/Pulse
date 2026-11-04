@@ -25,6 +25,19 @@ function parseMacWifi(powerOut, networkOut) {
   return { wifi: 'on', ssid, signal: null };
 }
 
+// macOS: os.freemem() only counts completely unused pages, and macOS fills spare memory with file cache,
+// so it reads ~99% almost always. Activity Monitor's "Memory Used" is app memory + wired + compressed;
+// we take the same from `vm_stat` (app memory = anonymous pages minus purgeable ones).
+function parseVmStat(out, total = os.totalmem()) {
+  const text = String(out);
+  const page = Number((text.match(/page size of (\d+) bytes/) || [])[1]) || 4096;
+  const n = name => { const m = text.match(new RegExp(`^${name}:\\s+(\\d+)`, 'mi')); return m ? Number(m[1]) : null; };
+  const wired = n('Pages wired down'), compressed = n('Pages occupied by compressor'), anon = n('Anonymous pages'), active = n('Pages active');
+  if (wired == null || !total) return null;
+  const app = anon != null ? Math.max(0, anon - (n('Pages purgeable') || 0)) : (active || 0);
+  return Math.round(Math.max(0, Math.min(100, ((app + wired + (compressed || 0)) * page / total) * 100)));
+}
+
 // CPU use is the share of non-idle time across all cores between two samples.
 function cpuTimes(cpus = os.cpus()) {
   let idle = 0, total = 0;
@@ -40,9 +53,15 @@ class SystemStatus extends EventEmitter {
   constructor() { super(); this.state = { wifi: 'none' }; this.stats = { cpu: null, ram: null }; this.timers = []; }
   start() {
     let last = cpuTimes();
+    const mac = process.platform === 'darwin';
+    let macRam = null, tick = 0;
+    const readVm = () => execFile('/usr/bin/vm_stat', { timeout: 3000 }, (err, out) => { if (!err) macRam = parseVmStat(out); });
+    if (mac) readVm();
     this.timers.push(setInterval(() => {
       const now = cpuTimes();
-      this.stats = { cpu: cpuPercent(last, now), ram: Math.round((1 - os.freemem() / os.totalmem()) * 100) };
+      if (mac && ++tick % 3 === 0) readVm(); // every 6 s is plenty for a percentage
+      const ram = mac && macRam != null ? macRam : Math.round((1 - os.freemem() / os.totalmem()) * 100);
+      this.stats = { cpu: cpuPercent(last, now), ram };
       last = now;
       this.emit('stats', this.stats);
     }, 2000));
@@ -64,4 +83,4 @@ class SystemStatus extends EventEmitter {
   stop() { for (const t of this.timers) clearInterval(t); }
 }
 
-module.exports = { SystemStatus, parseWlan, parseMacWifi, macWifiDevice, cpuPercent };
+module.exports = { SystemStatus, parseWlan, parseMacWifi, macWifiDevice, cpuPercent, parseVmStat };

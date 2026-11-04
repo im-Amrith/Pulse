@@ -1,6 +1,6 @@
 {
   "name": "pulse",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Pulse: a living island at the top of your screen that follows Claude Code live, for Windows and macOS.",
   "main": "src/main/main.js",
   "private": true,

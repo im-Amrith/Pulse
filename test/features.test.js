@@ -84,6 +84,24 @@ test('macOS: Wi-Fi device and status parsing', () => {
   assert.deepEqual(parseMacWifi('Wi-Fi Power (en0): Off', ''), { wifi: 'off' });
 });
 
+test('macOS: RAM use counts app, wired and compressed memory, not file cache', () => {
+  const { parseVmStat } = require('../src/main/system');
+  // a 16 GB Mac with lots of file cache: almost nothing is "free", but under half is really in use
+  const vm = `Mach Virtual Memory Statistics: (page size of 16384 bytes)
+Pages free:                                9000.
+Pages active:                            300000.
+Pages inactive:                          290000.
+Pages speculative:                         5000.
+Pages wired down:                        150000.
+Pages purgeable:                          10000.
+Anonymous pages:                         280000.
+File-backed pages:                       330000.
+Pages occupied by compressor:             60000.`;
+  const total = 16 * 1024 ** 3;
+  assert.equal(parseVmStat(vm, total), 46); // (280000 - 10000 + 150000 + 60000) pages of 16 KB
+  assert.equal(parseVmStat('garbage', total), null);
+});
+
 test('claude config notices Pulse entries that point at an old location', () => {
   const { createClaudeConfig } = require('../src/main/claude-config');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pulse-move-'));
