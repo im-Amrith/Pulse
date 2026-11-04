@@ -28,9 +28,9 @@ const kindOf = tool => TOOL_KIND[tool] || (String(tool).startsWith('mcp__') ? 'm
 function describe(tool, input = {}) {
   const file = input.file_path || input.notebook_path || input.path;
   switch (kindOf(tool)) {
-    case 'read': return { verb: 'Reading', target: file ? path.basename(file) : '' };
+    case 'read': return { verb: 'Reading', target: file ? baseName(file) : '' };
     case 'search': return { verb: 'Searching', target: input.pattern || '' };
-    case 'edit': return { verb: tool === 'Write' ? 'Writing' : 'Editing', target: file ? path.basename(file) : '' };
+    case 'edit': return { verb: tool === 'Write' ? 'Writing' : 'Editing', target: file ? baseName(file) : '' };
     case 'run': return { verb: 'Running', target: input.command || '' };
     case 'web': return { verb: 'Browsing', target: input.url || input.query || '' };
     case 'agent': return { verb: 'Delegating', target: input.description || '' };
@@ -39,6 +39,8 @@ function describe(tool, input = {}) {
   }
 }
 
+// Last part of a path, splitting on both / and \ (Claude Code may report Windows or POSIX paths on any OS).
+const baseName = p => String(p || '').split(/[\\/]+/).filter(Boolean).pop() || '';
 const clip = (s, n) => { s = String(s ?? ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 const lines = (s, n, w = 100) => String(s ?? '').split(/\r?\n/).map(l => l.trimEnd()).filter(Boolean).slice(-n).map(l => clip(l, w));
 
@@ -148,7 +150,7 @@ class Hub extends EventEmitter {
     const s = this.sessions.get(id) || newSession(id);
     const now = Date.now();
     s.updatedAt = now;
-    if (typeof ev.cwd === 'string' && ev.cwd) { s.cwd = ev.cwd; s.project = path.basename(ev.cwd); }
+    if (typeof ev.cwd === 'string' && ev.cwd) { s.cwd = ev.cwd; s.project = baseName(ev.cwd); }
     const begin = () => { if (!s.startedAt || s.endedAt) s.startedAt = now; s.endedAt = 0; };
     let held = false;
 
@@ -173,7 +175,7 @@ class Hub extends EventEmitter {
         s.stepCount++;
         if (kindOf(tool) === 'edit') s.phase = Math.max(s.phase, 1);
         if (kindOf(tool) === 'run' && s.phase >= 1) s.phase = 2;
-        const file = input.file_path ? path.basename(String(input.file_path)) : '';
+        const file = input.file_path ? baseName(String(input.file_path)) : '';
         if (kindOf(tool) === 'edit' && file) {
           if (!s.files.includes(file)) s.files.push(file);
           const edit = Array.isArray(input.edits) ? input.edits[0] || {} : input;
