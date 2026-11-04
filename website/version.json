@@ -5,5 +5,11 @@
   "sha256": "b07f77419e213786f00bab8223c09493b55c076999e0e403bc4bdcc36c3a4566",
   "signed": false,
   "download": "https://github.com/im-Amrith/Pulse-releases/releases/latest/download/Pulse-win-x64.zip",
-  "notes": "https://github.com/im-Amrith/Pulse-releases/releases/tag/v0.2.2"
+  "notes": "https://github.com/im-Amrith/Pulse-releases/releases/tag/v0.2.2",
+  "mac": {
+    "sizeMB": 215,
+    "sha256": "6fa4506420ba473a2c29ff71a72c30c501dffcbf82fbe5a53ef3b189d381b1a2",
+    "signed": false,
+    "download": "https://github.com/im-Amrith/Pulse-releases/releases/latest/download/Pulse-mac-universal.dmg"
+  }
 }
