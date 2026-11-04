@@ -98,20 +98,20 @@ html.no-gl .hero-fallback { display: block; }
 .scroll-cue i { width: 1px; height: 40px; background: linear-gradient(var(--accent), transparent); animation: cue 2.4s var(--ease) infinite; transform-origin: top; }
 @keyframes cue { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
 
-/* ---------- demo: real footage of the island (recorded by npm run film) ---------- */
+/* ---------- demo: the promo film (real island footage on a laptop, see promo/) ---------- */
 .demo { position: relative; z-index: 3; padding: clamp(24px, 6vh, 64px) var(--gutter) clamp(90px, 14vh, 150px); }
 .demo-head { max-width: 640px; margin: 0 auto 36px; text-align: center; }
 .demo-head h2 { font: 600 clamp(36px, 4.4vw, 64px)/.95 var(--display); letter-spacing: -.015em; }
 .demo-head p { margin-top: 14px; color: var(--mist); font-size: 16.5px; }
 .mock { position: relative; max-width: 1080px; margin: 0 auto; aspect-ratio: 16 / 9; border-radius: 22px; overflow: hidden; isolation: isolate; background: #0b0d1a;
   box-shadow: 0 0 0 1px var(--line), 0 0 0 9px #05060d, 0 0 0 10px rgba(169,174,203,.18), 0 40px 90px rgba(0,0,0,.55); }
-.mock video { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
-.demo-steps { list-style: none; max-width: 1080px; margin: 26px auto 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
-.demo-steps button { width: 100%; padding: 12px 8px 10px; border-top: 2px solid var(--line); color: var(--faint); font-size: 13.5px; text-align: left; position: relative; transition: color .3s; }
-/* the bar over the current chapter fills as the video plays through it */
-.demo-steps button::before { content: ''; position: absolute; left: 0; top: -2px; height: 2px; width: calc(var(--p, 0) * 100%); background: var(--accent); }
-.demo-steps button[aria-current="step"] { color: var(--paper); }
-.demo-steps button:hover { color: var(--paper); }
+.mock video { width: 100%; height: 100%; object-fit: cover; }
+/* sound and replay sit on the film, bottom right */
+.film-ctl { position: absolute; right: 14px; bottom: 14px; display: flex; gap: 8px; z-index: 2; }
+.film-ctl button { height: 36px; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--paper);
+  background: rgba(10, 11, 20, .62); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); transition: background .25s; }
+.film-ctl button:hover { background: rgba(10, 11, 20, .85); }
+.film-ctl svg { width: 16px; height: 16px; }
 
 /* a light CSS sphere: the phone stand-in for the 3D one (black gloss, a highlight, a rim of the theme colour) */
 .css-pill { display: none; position: relative; width: 150px; height: 150px; margin: 0 0 30px; border-radius: 50%;
@@ -228,9 +228,8 @@ footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
   .demo { padding-top: 12px; }
   .demo-head { text-align: left; margin-bottom: 24px; }
   /* a taller "screen" so the unfolded panel stays readable */
-  .mock { aspect-ratio: 3 / 2; border-radius: 16px; }
-  .demo-steps { grid-template-columns: 1fr; gap: 0; }
-  .demo-steps button { padding: 11px 0; }
+  /* phones get the vertical cut */
+  .mock { aspect-ratio: 9 / 16; max-width: 420px; border-radius: 22px; }
   .card { grid-template-columns: 1fr; top: 8vh; min-height: auto; }
   .colours { grid-template-columns: 1fr; min-height: auto; padding: 90px var(--gutter); }
   .colours .copy { grid-column: 1; }
@@ -285,25 +284,22 @@ footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
     <div class="scroll-cue" aria-hidden="true">Scroll<i></i></div>
   </section>
 
-  <!-- 1b. demo: Pulse on a desktop, playing through its real states (real app screenshots) -->
+  <!-- 1b. demo: the 30-second film. Real island footage at its true size on a laptop screen (built in promo/). -->
   <section class="demo" id="demo" aria-labelledby="demo-title">
     <div class="demo-head reveal">
       <h2 id="demo-title">This is Pulse on your screen.</h2>
-      <p>It lives at the top edge. Watch it follow Claude Code, unfold when you hover, ask before anything risky, and play along with your music.</p>
+      <p>A small capsule at the top edge that opens into a full panel when you need it. Watch it follow Claude Code, ask before anything risky, and keep your music, timers and files one hover away.</p>
     </div>
     <div class="mock">
-      <video src="assets/demo.mp4" poster="assets/demo.jpg" muted loop playsinline preload="metadata"
-        aria-label="Recording of Pulse at the top of the screen: it follows a Claude Code session, unfolds on hover, asks to allow a command, smiles when the job is done, then shows song lyrics and the music page."></video>
+      <!-- the source is picked by screen shape in the script: landscape for wide screens, the vertical cut for phones -->
+      <video muted loop playsinline preload="metadata" data-wide="assets/promo/web-1280x720.mp4" data-wide-poster="assets/promo/pulse-promo-poster.jpg"
+        data-tall="assets/promo/web-720x1280.mp4" data-tall-poster="assets/promo/poster-vertical.jpg"
+        aria-label="30-second film of Pulse on a laptop: the small capsule at the top of the screen follows a Claude Code session, unfolds into a panel, asks to allow a command, smiles when it's done, then shows music, focus timers, reminders, the launcher, the file tray and clipboard."></video>
+      <div class="film-ctl">
+        <button type="button" class="sound" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="wave" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" opacity=".35"/></svg><span>Sound on</span></button>
+        <button type="button" class="replay" aria-label="Play from the start"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+      </div>
     </div>
-    <!-- chapter start times come from assets/demo.json (written by npm run film) -->
-    <ol class="demo-steps" aria-label="Chapters">
-      <li><button data-t="0.00">Claude is working</button></li>
-      <li><button data-t="6.32">Hover to unfold</button></li>
-      <li><button data-t="12.59">Allow in one click</button></li>
-      <li><button data-t="19.15">Done, with a smile</button></li>
-      <li><button data-t="23.07">Lyrics while you work</button></li>
-      <li><button data-t="32.13">Music, one hover away</button></li>
-    </ol>
   </section>
 
   <!-- 2. pinned stage: the capsule unfolds into the real app -->
@@ -871,30 +867,35 @@ for (const t of THEMES) {
 }
 pick(THEMES[0]);
 
-// ---------- demo: the footage plays while it's on screen; the chapters follow it and seek it ----------
+// ---------- demo: the film plays (muted) while it's on screen; sound and replay on request ----------
 (() => {
   const demo = document.querySelector('.demo');
   const video = demo.querySelector('video');
-  const buttons = [...demo.querySelectorAll('[data-t]')];
-  const starts = buttons.map(b => Number(b.dataset.t));
-  let onScreen = false, raf = 0;
-  const chapter = time => { let i = 0; starts.forEach((s, k) => { if (time >= s) i = k; }); return i; };
-  const paint = () => {
-    const time = video.currentTime, i = chapter(time);
-    const end = starts[i + 1] ?? (video.duration || starts[i] + 8);
-    buttons.forEach((b, k) => {
-      if (k === i) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
-      b.style.setProperty('--p', k < i ? 1 : k > i ? 0 : Math.min(1, (time - starts[i]) / (end - starts[i])));
-    });
-    if (onScreen && !video.paused) raf = requestAnimationFrame(paint);
+  const sound = demo.querySelector('.film-ctl .sound'), replay = demo.querySelector('.film-ctl .replay');
+  const tall = matchMedia('(max-width: 960px)');
+  const pickSource = () => {
+    const k = tall.matches ? 'tall' : 'wide', src = video.dataset[k];
+    if (video.getAttribute('src') === src) return;
+    const t = video.currentTime || 0;
+    video.poster = video.dataset[`${k}Poster`]; video.src = src;
+    if (t) video.addEventListener('loadedmetadata', () => { video.currentTime = t; }, { once: true });
+    if (onScreen) play();
   };
-  const play = () => { if (!reduce) video.play().then(() => { cancelAnimationFrame(raf); paint(); }).catch(() => {}); };
-  buttons.forEach((b, i) => b.addEventListener('click', () => { video.currentTime = starts[i] + 0.05; paint(); play(); }));
-  video.addEventListener('seeked', paint);
+  let onScreen = false;
+  const play = () => { if (!reduce || !video.muted) video.play().catch(() => {}); };
+  const setSound = on => {
+    video.muted = !on; sound.setAttribute('aria-pressed', String(on));
+    sound.querySelector('span').textContent = on ? 'Sound off' : 'Sound on';
+    sound.querySelector('.wave').setAttribute('opacity', on ? '1' : '.35');
+    if (on) play();
+  };
+  sound.addEventListener('click', () => setSound(video.muted));
+  replay.addEventListener('click', () => { video.currentTime = 0; play(); });
   new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; if (onScreen) play(); else video.pause(); }, { threshold: 0.35 }).observe(demo.querySelector('.mock'));
-  // with reduced motion nothing plays by itself: show the permission moment and let people choose a chapter
-  if (reduce) { video.addEventListener('loadedmetadata', () => { video.currentTime = starts[2] + 2.5; }, { once: true }); video.controls = true; }
-  paint();
+  tall.addEventListener('change', pickSource);
+  pickSource();
+  // with reduced motion nothing plays by itself: the poster shows, and the controls start it
+  if (reduce) video.controls = true;
 })();
 
 // version, size and download link come from version.json, written by `npm run release`

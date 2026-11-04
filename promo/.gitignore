@@ -13,3 +13,4 @@ stills/
 .check*.json
 *.jpg
 !shared/**/*.jpg
+!final/*.jpg
