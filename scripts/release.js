@@ -79,7 +79,11 @@ async function main() {
     download: `https://github.com/${RELEASES_REPO}/releases/latest/download/Pulse-win-x64.zip`,
     notes: `https://github.com/${RELEASES_REPO}/releases/tag/v${VERSION}`,
   };
-  fs.writeFileSync(path.join(ROOT, 'website', 'version.json'), JSON.stringify(info, null, 2) + '\n');
+  // keep the Mac download details (written by scripts/add-mac.js) when the Windows build is redone
+  const vfile = path.join(ROOT, 'website', 'version.json');
+  let prev = {}; try { prev = JSON.parse(fs.readFileSync(vfile, 'utf8')); } catch {}
+  const mac = prev.version === VERSION && prev.mac ? { mac: prev.mac } : {};
+  fs.writeFileSync(vfile, JSON.stringify({ ...info, ...mac }, null, 2) + '\n');
   console.log(`\nDone: ${ZIP} (${info.sizeMB} MB, ${info.signed ? 'signed' : 'unsigned'})`);
 }
 

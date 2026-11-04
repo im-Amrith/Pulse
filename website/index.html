@@ -155,7 +155,12 @@ section.block { padding: clamp(110px, 16vh, 180px) var(--gutter); }
 .download::after { content: ''; position: absolute; inset: 0; z-index: -1; background: radial-gradient(60% 50% at 50% 55%, transparent, var(--bg) 90%), linear-gradient(var(--bg), transparent 30%, transparent 75%, var(--bg)); }
 .download h2 { font: 600 clamp(56px, 8vw, 132px)/.88 var(--display); letter-spacing: -.02em; }
 .download .lede { margin: 22px auto 0; max-width: 30rem; color: var(--mist); font-size: 18px; }
-.download .actions { margin-top: 36px; display: flex; justify-content: center; }
+.download .actions { margin-top: 36px; display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
+.os-switch { margin: 46px auto 0; display: inline-flex; padding: 4px; border-radius: 999px; background: rgba(15, 18, 34, .62); box-shadow: inset 0 0 0 1px var(--line); backdrop-filter: blur(16px); }
+.os-switch button { padding: 8px 18px; border-radius: 999px; font-size: 14px; color: var(--mist); }
+.os-switch button[aria-selected="true"] { background: var(--paper); color: #0e1022; }
+.os-switch + .install { margin-top: 18px; }
+[hidden] { display: none !important; }
 .download .btn-primary { height: 58px; padding: 0 28px; font-size: 16px; }
 .dl-meta { margin-top: 18px; font-size: 13px; color: var(--faint); }
 .install { margin: 64px auto 0; max-width: 920px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; text-align: left; }
@@ -327,18 +332,29 @@ footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
     <video src="assets/doorway.mp4" muted loop playsinline preload="metadata" aria-hidden="true"></video>
     <div>
       <h2 id="download-title" class="reveal">Give your desk<br>a pulse.</h2>
-      <p class="lede reveal">Free for Windows 10 and 11. Unzip it, open it, and the island appears at the top of your screen.</p>
+      <p class="lede reveal" id="dl-lede">Free for Windows 10 and 11. Unzip it, open it, and the island appears at the top of your screen.</p>
+      <!-- the Mac button, toggle and steps stay hidden until version.json lists a Mac build -->
       <div class="actions reveal">
-        <a class="btn btn-primary" id="dl-btn" href="https://github.com/im-Amrith/Pulse-releases/releases/latest/download/Pulse-win-x64.zip">Download Pulse for Windows <span class="chip" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v13M6 12l6 6 6-6"/></svg></span></a>
+        <a class="btn btn-primary" id="dl-btn" data-os="win" href="https://github.com/im-Amrith/Pulse-releases/releases/latest/download/Pulse-win-x64.zip">Download for Windows <span class="chip" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v13M6 12l6 6 6-6"/></svg></span></a>
+        <a class="btn btn-ghost" id="dl-mac" data-os="mac" href="#" hidden>Download for Mac <span class="chip" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v13M6 12l6 6 6-6"/></svg></span></a>
       </div>
       <p class="dl-meta reveal" id="dl-meta">Version 0.1.0, 64-bit zip</p>
       <p class="dl-meta reveal">By downloading Pulse you agree to the <a href="terms.html">Terms of Use and Licence</a>. Pulse is provided as is, without warranty.</p>
-      <ol class="install">
+      <div class="os-switch reveal" role="tablist" aria-label="Install steps for" hidden>
+        <button role="tab" data-show="win" aria-selected="true">Windows</button><button role="tab" data-show="mac" aria-selected="false">Mac</button>
+      </div>
+      <ol class="install" data-steps="win">
         <li class="reveal"><span class="n">1</span><b>Unzip the folder</b><span>Right-click the zip and choose Extract All, for example into Documents.</span></li>
-        <li class="reveal"><span class="n">2</span><b>Open Pulse.exe</b><span>The capsule appears at the top of your screen. Hover it to unfold.</span></li>
+        <li class="reveal"><span class="n">2</span><b>Open Pulse.exe</b><span>The capsule appears at the top of your screen. Hover it to unfold. Search “Pulse” from the Start button next time.</span></li>
         <li class="reveal"><span class="n">3</span><b>Connect Claude Code</b><span>Click Connect in the island, then restart any Claude Code session that was already open.</span></li>
       </ol>
-      <p class="note reveal">Pulse isn’t code-signed yet, so Windows may say <b>“Windows protected your PC”</b> the first time. Choose <b>More info</b>, then <b>Run anyway</b>.</p>
+      <ol class="install" data-steps="mac" hidden>
+        <li><span class="n">1</span><b>Open the .dmg</b><span>Drag Pulse into Applications. It runs on Apple Silicon and Intel Macs.</span></li>
+        <li><span class="n">2</span><b>Open Pulse</b><span>The first time, macOS may block it: open System Settings → Privacy &amp; Security and choose Open Anyway.</span></li>
+        <li><span class="n">3</span><b>Connect Claude Code</b><span>Click Connect in the island. Pulse lives in the menu bar, and ⌘⌥P unfolds it.</span></li>
+      </ol>
+      <p class="note reveal" data-steps="win">Pulse isn’t code-signed yet, so Windows may say <b>“Windows protected your PC”</b> the first time. Choose <b>More info</b>, then <b>Run anyway</b>.</p>
+      <p class="note" data-steps="mac" hidden>The Mac version isn’t notarized by Apple yet, which is why macOS asks you to allow it once. Allow Pulse to control Spotify or Music when asked, so the music controls work.</p>
     </div>
   </section>
 </main>
@@ -767,11 +783,33 @@ for (const t of THEMES) {
 pick(THEMES[0]);
 
 // version, size and download link come from version.json, written by `npm run release`
+const $id = id => document.getElementById(id);
+const visitorOnMac = /Mac/i.test(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent);
+function showSteps(os) {
+  document.querySelectorAll('[data-steps]').forEach(el => { el.hidden = el.dataset.steps !== os; if (!el.hidden) el.querySelectorAll('.reveal, :scope.reveal').forEach(r => gsap.set(r, { opacity: 1, y: 0 })); });
+  document.querySelectorAll('.os-switch button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.show === os)));
+}
+document.querySelectorAll('.os-switch button').forEach(b => b.addEventListener('click', () => showSteps(b.dataset.show)));
 fetch('version.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).then(v => {
   if (!v?.version) return;
-  document.getElementById('dl-meta').textContent = `Version ${v.version}, 64-bit zip, ${v.sizeMB} MB${v.signed ? ', signed' : ''}`;
-  document.getElementById('foot-version').textContent = `Pulse ${v.version}`;
-  if (v.download) document.getElementById('dl-btn').href = v.download;
+  $id('foot-version').textContent = `Pulse ${v.version}`;
+  if (v.download) $id('dl-btn').href = v.download;
+  const win = `Windows: 64-bit zip, ${v.sizeMB} MB`;
+  if (!v.mac) { $id('dl-meta').textContent = `Version ${v.version}, 64-bit zip, ${v.sizeMB} MB${v.signed ? ', signed' : ''}`; return; }
+  // a Mac build exists: show its button and steps, and lead with the visitor's own system
+  const mac = $id('dl-mac');
+  mac.href = v.mac.download; mac.hidden = false;
+  document.querySelector('.os-switch').hidden = false;
+  $id('dl-lede').textContent = 'Free for Windows 10 and 11, and for Macs with Apple Silicon or Intel. Open it, and the island appears at the top of your screen.';
+  $id('dl-meta').textContent = `Version ${v.version}. ${win}. Mac: universal .dmg, ${v.mac.sizeMB} MB.`;
+  document.querySelector('.hero-meta span:nth-child(2)').textContent = 'Windows and Mac';
+  if (visitorOnMac) {
+    mac.classList.replace('btn-ghost', 'btn-primary'); $id('dl-btn').classList.replace('btn-primary', 'btn-ghost');
+    mac.after($id('dl-btn'));
+    document.querySelector('.hero-actions .btn-primary').firstChild.textContent = 'Download for Mac ';
+    showSteps('mac');
+  }
+  ScrollTrigger.refresh(); // the page got taller: re-measure the scroll animations
 }).catch(() => {});
 addEventListener('load', () => ScrollTrigger.refresh());
 </script>
