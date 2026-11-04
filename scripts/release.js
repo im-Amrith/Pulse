@@ -43,7 +43,7 @@ async function main() {
   fs.mkdirSync(app, { recursive: true });
   for (const f of ['package.json', 'package-lock.json', 'LICENSE.txt', 'TERMS.txt']) fs.copyFileSync(path.join(ROOT, f), path.join(app, f));
   execFileSync(process.execPath, [path.join(__dirname, 'build-helper.js')], { stdio: 'inherit' });
-  fs.cpSync(path.join(ROOT, 'src'), path.join(app, 'src'), { recursive: true, filter: f => !f.includes(path.join('src', 'native')) });
+  fs.cpSync(path.join(ROOT, 'src'), path.join(app, 'src'), { recursive: true, filter: f => !f.includes(path.join('src', 'native')) && !f.endsWith(path.join('main', 'film.js')) });
   execSync('npm install --omit=dev --no-audit --no-fund --loglevel=error', { cwd: app, stdio: 'inherit' });
   for (const f of ['LICENSE.txt', 'TERMS.txt']) fs.copyFileSync(path.join(ROOT, f), path.join(DIST, f));
 

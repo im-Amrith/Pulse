@@ -15,6 +15,7 @@ files:
   - "!src/main/media.ps1"
   - "!src/main/bin/**"
   - "!src/native/**"
+  - "!src/main/film.js"
 mac:
   category: public.app-category.productivity
   icon: build/icon.png

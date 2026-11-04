@@ -10,7 +10,8 @@
     "test": "node --test \"test/*.test.js\"",
     "release": "node scripts/release.js",
     "deploy": "node scripts/deploy.js",
-    "helper": "node scripts/build-helper.js"
+    "helper": "node scripts/build-helper.js",
+    "film": "node scripts/film.js"
   },
   "author": "Amrithesh S Menon",
   "license": "SEE LICENSE IN LICENSE.txt",

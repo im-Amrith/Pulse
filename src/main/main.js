@@ -10,6 +10,9 @@ const { systemPreferences } = require('electron');
 const IS_MAC = process.platform === 'darwin';
 // Set by the automated Mac/Windows builds: start everything, report, quit. Never set for real users.
 const SMOKE_TEST = process.env.PULSE_SMOKE_TEST === '1';
+// Records the website demo with made-up content in its own empty profile (see film.js). Never set for real users.
+const FILM = process.env.PULSE_FILM || '';
+if (FILM) { app.setPath('userData', path.join(app.getPath('temp'), 'pulse-film-profile')); app.commandLine.appendSwitch('force-device-scale-factor', '2'); }
 const { ClipboardHistory } = require('./clipboard');
 const { SystemStatus } = require('./system');
 const { createAsk } = require('./ask');
@@ -34,7 +37,7 @@ const termsPath = () => path.join(app.getAppPath(), 'TERMS.txt');
 // Windows: keep a Start menu shortcut, so searching "Pulse" from the Start button finds and opens it.
 // Recreated on every launch so it always points at wherever this copy of Pulse lives.
 function ensureStartMenuShortcut() {
-  if (process.platform !== 'win32' || SMOKE_TEST) return;
+  if (process.platform !== 'win32' || SMOKE_TEST || FILM) return;
   try {
     const { iconIco } = require('./icon');
     const lnk = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Pulse.lnk');
@@ -55,7 +58,7 @@ function ensureStartMenuShortcut() {
 
 // Before Pulse starts for the first time (or after the terms change), ask the user to agree.
 async function ensureTermsAccepted() {
-  if (SMOKE_TEST || prefs.get().termsAccepted === TERMS_VERSION) return true;
+  if (SMOKE_TEST || FILM || prefs.get().termsAccepted === TERMS_VERSION) return true;
   for (;;) {
     const { response } = await dialog.showMessageBox({
       type: 'info', title: 'Pulse', noLink: true, defaultId: 0, cancelId: 2,
@@ -335,8 +338,8 @@ app.whenReady().then(async () => {
   claude = createClaudeConfig({ token, node: app.isPackaged ? `ELECTRON_RUN_AS_NODE=1 "${process.execPath}"` : undefined });
   // If Pulse was connected before but now lives somewhere else (a moved folder, or macOS running a downloaded
   // app from a temporary location), its hook commands point at the old place: rewrite them quietly.
-  try { if (!SMOKE_TEST && claude.hasOurs() && !claude.status().connected) claude.connect(); } catch {}
-  media = createMedia();
+  try { if (!SMOKE_TEST && !FILM && claude.hasOurs() && !claude.status().connected) claude.connect(); } catch {}
+  media = FILM ? new (require('./film').FakeMedia)() : createMedia();
   clips = new ClipboardHistory();
   sys = new SystemStatus();
   phone = new PhoneBridge({ getShelf: shelf, saveDir: path.join(app.getPath('downloads'), 'Pulse') });
@@ -359,6 +362,11 @@ app.whenReady().then(async () => {
 
   wireIpc();
   createWindow();
+  if (FILM) {
+    require('./film').run({ win, hub, media, lyrics, sys, claude, prefs, push, send, outDir: path.resolve(FILM) })
+      .catch(err => console.error('FILM failed', err)).finally(() => app.exit(0));
+    return;
+  }
   createTray();
   trackCursor();
   await hub.start();
