@@ -32,4 +32,21 @@ function iconPng(size = 32, rgb = [124, 92, 255]) {
     chunk('IDAT', zlib.deflateSync(Buffer.concat(rows))), chunk('IEND', Buffer.alloc(0))]);
 }
 
-module.exports = { iconPng };
+// A Windows .ico holding PNG images at several sizes (used for the app icon and the Start menu shortcut).
+function iconIco(sizes = [16, 24, 32, 48, 64, 128, 256]) {
+  const images = sizes.map(s => ({ s, png: iconPng(s) }));
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0); header.writeUInt16LE(1, 2); header.writeUInt16LE(images.length, 4);
+  const dir = Buffer.alloc(16 * images.length);
+  let offset = 6 + dir.length;
+  images.forEach(({ s, png }, i) => {
+    const o = i * 16;
+    dir[o] = s >= 256 ? 0 : s; dir[o + 1] = s >= 256 ? 0 : s;  // 0 means 256
+    dir.writeUInt16LE(1, o + 4); dir.writeUInt16LE(32, o + 6);   // planes, bits per pixel
+    dir.writeUInt32LE(png.length, o + 8); dir.writeUInt32LE(offset, o + 12);
+    offset += png.length;
+  });
+  return Buffer.concat([header, dir, ...images.map(i => i.png)]);
+}
+
+module.exports = { iconPng, iconIco };

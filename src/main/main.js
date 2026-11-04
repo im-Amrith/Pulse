@@ -31,6 +31,28 @@ let win = null, tray = null, hub, claude, media, clips, sys, ask, phone, lyrics,
 const TERMS_VERSION = '2026-11-04.2'; // v0.2 adds macOS
 const termsPath = () => path.join(app.getAppPath(), 'TERMS.txt');
 
+// Windows: keep a Start menu shortcut, so searching "Pulse" from the Start button finds and opens it.
+// Recreated on every launch so it always points at wherever this copy of Pulse lives.
+function ensureStartMenuShortcut() {
+  if (process.platform !== 'win32' || SMOKE_TEST) return;
+  try {
+    const { iconIco } = require('./icon');
+    const lnk = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Pulse.lnk');
+    // the packaged Pulse.exe carries its own icon; a development copy runs electron.exe, so give it Pulse's icon
+    let icon = process.execPath;
+    if (!app.isPackaged) { icon = path.join(userData(), 'pulse.ico'); fs.writeFileSync(icon, iconIco()); }
+    const options = {
+      target: process.execPath,
+      args: app.isPackaged ? '' : `"${app.getAppPath()}"`,
+      cwd: path.dirname(process.execPath),
+      description: 'Pulse: a living island for your desktop',
+      icon, iconIndex: 0,
+      appUserModelId: 'com.amrithesh.pulse', // matches the app, so notifications and taskbar group under Pulse
+    };
+    shell.writeShortcutLink(lnk, fs.existsSync(lnk) ? 'replace' : 'create', options);
+  } catch (err) { console.warn('Start menu shortcut:', err.message); }
+}
+
 // Before Pulse starts for the first time (or after the terms change), ask the user to agree.
 async function ensureTermsAccepted() {
   if (SMOKE_TEST || prefs.get().termsAccepted === TERMS_VERSION) return true;
@@ -222,6 +244,7 @@ function wireIpc() {
   handle('prefs:set', patch => {
     prefs.set({ ...prefs.get(), ...patch });
     if ('lyrics' in patch) { lyrics.enabled = patch.lyrics !== false; lyrics.key = ''; lyrics.update(media.state); }
+    if ('theme' in patch) prefs.flush(); // write colours to disk right away, so they survive even a forced quit
     push(); return prefs.get();
   });
   handle('login:set', on => { app.setLoginItemSettings({ openAtLogin: Boolean(on) }); push(); });
@@ -296,6 +319,7 @@ app.whenReady().then(async () => {
   prefs = jsonFile(path.join(dir, 'prefs.json'), { note: '', shelf: [], notifications: true, sound: true, autoOpen: true, focusMinutes: 25 });
   history = historyStore(dir);
   if (!(await ensureTermsAccepted())) { app.quit(); return; }
+  ensureStartMenuShortcut();
   updates = new Updates(app.getVersion());
   updates.on('change', () => {
     push();

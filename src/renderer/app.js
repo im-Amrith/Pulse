@@ -8,7 +8,10 @@ let S = null;          // latest state from main
 let open = false;
 let current = 'home';
 let menuOpen = false;
-let lastError = '';
+let lastError = '', errorTimer = null;
+// Errors show for a few seconds, then clear; they also clear when you change page or fold the island.
+function showError(msg) { lastError = msg || ''; clearTimeout(errorTimer); if (lastError) errorTimer = setTimeout(() => { lastError = ''; render(); }, 5000); render(); }
+function clearError() { if (!lastError) return; lastError = ''; clearTimeout(errorTimer); }
 const drafts = {};     // text drafts keyed by data-key, survive re-renders
 const picks = {};      // AskUserQuestion selections: sessionId -> { question: Set }
 const chat = { question: '', answer: '', error: '', busy: false };
@@ -49,11 +52,11 @@ const ago = t => { const s = (Date.now() - t) / 1000; return s < 60 ? 'just now'
 const resetMs = r => { if (!r) return 0; const t = typeof r === 'number' ? (r < 1e12 ? r * 1000 : r) : Date.parse(r); return Math.max(0, t - Date.now()); };
 const isToday = t => new Date(t).toDateString() === new Date().toDateString();
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-const go = id => { current = id; menuOpen = false; render(); };
+const go = id => { current = id; menuOpen = false; clearError(); render(); };
 const artStyle = a => (a ? `background-image:url("${a.replace(/"/g, '')}")` : '');
 
 async function act(fn) {
-  try { lastError = ''; await fn(); } catch (e) { lastError = e.message; }
+  try { clearError(); await fn(); } catch (e) { showError(e.message); return; }
   render();
 }
 function preserveFocus(fn) {
@@ -99,6 +102,7 @@ function applyTheme(theme) {
   const key = main + second;
   if (key === appliedTheme) return;
   appliedTheme = key;
+  try { localStorage.setItem('theme', JSON.stringify({ main, second })); } catch {} // so the next launch starts in these colours
   // The body is always kept dark so text stays readable, whatever colour you pick.
   const [h, s] = hexToHsl(second), l = Math.min(Math.max(hexToHsl(second)[2], 7), 18), sat = Math.min(s, 45);
   const root = document.documentElement.style;
@@ -111,7 +115,8 @@ function applyTheme(theme) {
   root.setProperty('--mist', hsl(h, Math.min(sat, 22), 72));
   root.setProperty('--faint', hsl(h, Math.min(sat, 18), 50));
 }
-applyTheme(DEFAULT_THEME);
+// Start in your last colours straight away (your saved settings arrive a moment later and win if they differ).
+applyTheme((() => { try { return JSON.parse(localStorage.getItem('theme')) || DEFAULT_THEME; } catch { return DEFAULT_THEME; } })());
 
 // ---------- the face ----------
 const pillEyes = new Eyes($('#pill-eyes'), { reach: 3 });
@@ -188,7 +193,7 @@ function setOpen(v, { focus = false, to } = {}) {
   island.classList.toggle('is-open', v);
   pulse.interactive(v || hovering);
   if (!v && S && ['finished', 'failed'].includes(S.hub.mood)) pulse.ack();
-  if (!v) noteEditing = false;
+  if (!v) { noteEditing = false; clearError(); }
   render();
 }
 $('#pill').addEventListener('click', () => setOpen(true, { focus: true }));
@@ -273,7 +278,7 @@ const swMs = () => sw.acc + (sw.startedAt ? Date.now() - sw.startedAt : 0);
 const fmtSw = ms => { const cs = Math.floor(ms / 10) % 100; return `${fmt(Math.floor(ms / 1000))}.${String(cs).padStart(2, '0')}`; };
 function addTimer(name, minutes) {
   const total = Math.round(minutes * 60);
-  if (!(total > 0) || total > 24 * 3600) { lastError = 'Pick a length between 1 second and 24 hours.'; render(); return; }
+  if (!(total > 0) || total > 24 * 3600) { showError('Pick a length between 1 second and 24 hours.'); return; }
   timers = [...timers, { id: crypto.randomUUID(), name: name.trim() || `${minutes} min timer`, total, endsAt: Date.now() + total * 1000, done: false }];
   saveTimers(); render();
 }
@@ -720,7 +725,7 @@ function renderTime() {
 function renderTimers(box) {
   const nameKey = 'timer-name', minKey = 'timer-min';
   const start = mins => { const n = drafts[nameKey] || ''; drafts[nameKey] = ''; drafts[minKey] = ''; addTimer(n, mins); };
-  const custom = () => { const v = parseFloat(drafts[minKey]); if (v > 0) start(v); else { lastError = 'Type how many minutes, like 12 or 2.5.'; render(); } };
+  const custom = () => { const v = parseFloat(drafts[minKey]); if (v > 0) start(v); else showError('Type how many minutes, like 12 or 2.5.'); };
   const list = h('div', { class: 'tlist' });
   if (!timers.length) list.append(h('p', { class: 'faint', text: 'No timers yet. Start one on the left; several can run at once.' }));
   for (const t of timers) {
@@ -885,8 +890,8 @@ function renderReminders(box) {
   };
   const add = () => {
     const text = (drafts[textKey] || '').trim(), at = parseWhen(drafts[whenKey], base);
-    if (!text) { lastError = 'Write what to remind you about.'; render(); return; }
-    if (!at) { lastError = 'Pulse didn’t understand that time. Try “in 20 min”, “5pm” or “tomorrow 9am”.'; render(); return; }
+    if (!text) { showError('Write what to remind you about.'); return; }
+    if (!at) { showError('Pulse didn’t understand that time. Try “in 20 min”, “5pm” or “tomorrow 9am”.'); return; }
     drafts[textKey] = ''; drafts[whenKey] = '';
     saveReminders([...reminders(), { id: crypto.randomUUID(), text: text.slice(0, 200), at, done: false, fired: false }]);
   };
