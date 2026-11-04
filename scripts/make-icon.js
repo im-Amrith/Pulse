@@ -22,9 +22,10 @@ function makeIco(sizes = [16, 24, 32, 48, 64, 128, 256]) {
 }
 
 if (require.main === module) {
+  // .ico for Windows; a .png path writes a 1024 px image (macOS builds turn it into the app icon)
   const out = process.argv[2] || path.join(__dirname, '..', 'build', 'pulse.ico');
   fs.mkdirSync(path.dirname(out), { recursive: true });
-  fs.writeFileSync(out, makeIco());
+  fs.writeFileSync(out, out.endsWith('.png') ? iconPng(1024) : makeIco());
   console.log('wrote', out);
 }
 module.exports = { makeIco };

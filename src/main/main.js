@@ -5,7 +5,11 @@ const fs = require('node:fs');
 const { Hub } = require('./hub');
 const { createClaudeConfig } = require('./claude-config');
 const { jsonFile, loadToken, historyStore } = require('./store');
-const { Media } = require('./media');
+const { createMedia } = require('./media');
+const { systemPreferences } = require('electron');
+const IS_MAC = process.platform === 'darwin';
+// Set by the automated Mac/Windows builds: start everything, report, quit. Never set for real users.
+const SMOKE_TEST = process.env.PULSE_SMOKE_TEST === '1';
 const { ClipboardHistory } = require('./clipboard');
 const { SystemStatus } = require('./system');
 const { createAsk } = require('./ask');
@@ -24,12 +28,12 @@ const WIDTH = 720, HEIGHT = 560;
 let win = null, tray = null, hub, claude, media, clips, sys, ask, phone, lyrics, downloads, updates, prefs, history;
 
 // Bump when TERMS.txt changes in a way people should agree to again.
-const TERMS_VERSION = '2026-11-04';
+const TERMS_VERSION = '2026-11-04.2'; // v0.2 adds macOS
 const termsPath = () => path.join(app.getAppPath(), 'TERMS.txt');
 
 // Before Pulse starts for the first time (or after the terms change), ask the user to agree.
 async function ensureTermsAccepted() {
-  if (prefs.get().termsAccepted === TERMS_VERSION) return true;
+  if (SMOKE_TEST || prefs.get().termsAccepted === TERMS_VERSION) return true;
   for (;;) {
     const { response } = await dialog.showMessageBox({
       type: 'info', title: 'Pulse', noLink: true, defaultId: 0, cancelId: 2,
@@ -60,11 +64,14 @@ function createWindow() {
   win = new BrowserWindow({
     width: WIDTH, height: HEIGHT, frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true,
     alwaysOnTop: true, hasShadow: false, show: false, backgroundColor: '#00000000', roundedCorners: false,
+    // macOS: a non-activating panel floats over full-screen apps without stealing focus from them
+    ...(IS_MAC ? { type: 'panel', enableLargerThanScreen: true, fullscreenable: false } : {}),
     webPreferences: { preload: path.join(__dirname, '..', 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false },
   });
   place();
   win.setAlwaysOnTop(true, 'screen-saver');
-  win.setVisibleOnAllWorkspaces(true);
+  // on a Mac, also show on every desktop and above full-screen apps (and over the menu bar, around the notch)
+  win.setVisibleOnAllWorkspaces(true, IS_MAC ? { visibleOnFullScreen: true, skipTransformProcessType: true } : undefined);
   win.setIgnoreMouseEvents(true, { forward: true });
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   win.once('ready-to-show', () => win.showInactive());
@@ -84,14 +91,24 @@ function trackCursor() {
   }, 50);
 }
 
+// macOS menu-bar icons are black "template" images that the system tints for light and dark menu bars.
+function trayIcon() {
+  if (!IS_MAC) return nativeImage.createFromBuffer(iconPng(32));
+  const img = nativeImage.createEmpty();
+  img.addRepresentation({ scaleFactor: 1, buffer: iconPng(18, [0, 0, 0]) });
+  img.addRepresentation({ scaleFactor: 2, buffer: iconPng(36, [0, 0, 0]) });
+  img.setTemplateImage(true);
+  return img;
+}
+
 function createTray() {
-  tray = new Tray(nativeImage.createFromBuffer(iconPng(32)));
+  tray = new Tray(trayIcon());
   tray.setToolTip('Pulse');
   const rebuild = () => tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Open island', click: () => send('island:open') },
     { label: 'Settings', click: () => send('island:open', 'settings') },
     { type: 'separator' },
-    { label: 'Start with Windows', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
+    { label: IS_MAC ? 'Open at login' : 'Start with Windows', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
       click: item => { app.setLoginItemSettings({ openAtLogin: item.checked }); rebuild(); push(); } },
     { type: 'separator' },
     { label: 'Quit Pulse', click: () => app.quit() },
@@ -120,6 +137,10 @@ function notify(title, body) {
 }
 
 async function captureScreen() {
+  // macOS asks for Screen Recording permission the first time; if it was refused, say how to allow it
+  if (IS_MAC && systemPreferences.getMediaAccessStatus('screen') === 'denied') {
+    throw new Error('Pulse needs Screen Recording permission: System Settings → Privacy & Security → Screen Recording → turn on Pulse, then restart Pulse.');
+  }
   const { size, scaleFactor } = screen.getPrimaryDisplay();
   win.setOpacity(0); // keep the island itself out of the picture
   try {
@@ -269,6 +290,7 @@ function wireIpc() {
 }
 
 app.whenReady().then(async () => {
+  if (IS_MAC) app.dock?.hide(); // an island, not a window: no Dock icon, it lives in the menu bar
   const dir = userData();
   const token = loadToken(dir);
   prefs = jsonFile(path.join(dir, 'prefs.json'), { note: '', shelf: [], notifications: true, sound: true, autoOpen: true, focusMinutes: 25 });
@@ -285,7 +307,10 @@ app.whenReady().then(async () => {
   ask = createAsk({ dir: path.join(dir, 'ask') });
   hub = new Hub({ token, history, ignoreCwd: ask.dir });
   claude = createClaudeConfig({ token, node: app.isPackaged ? `ELECTRON_RUN_AS_NODE=1 "${process.execPath}"` : undefined });
-  media = new Media();
+  // If Pulse was connected before but now lives somewhere else (a moved folder, or macOS running a downloaded
+  // app from a temporary location), its hook commands point at the old place: rewrite them quietly.
+  try { if (!SMOKE_TEST && claude.hasOurs() && !claude.status().connected) claude.connect(); } catch {}
+  media = createMedia();
   clips = new ClipboardHistory();
   sys = new SystemStatus();
   phone = new PhoneBridge({ getShelf: shelf, saveDir: path.join(app.getPath('downloads'), 'Pulse') });
@@ -317,8 +342,15 @@ app.whenReady().then(async () => {
   setInterval(checkReminders, 5000);
   checkReminders();
 
-  globalShortcut.register('Control+Alt+P', () => send('island:toggle'));
+  globalShortcut.register(IS_MAC ? 'Command+Alt+P' : 'Control+Alt+P', () => send('island:toggle'));
   screen.on('display-metrics-changed', place);
+
+  if (SMOKE_TEST) setTimeout(() => {
+    const report = { platform: process.platform, arch: process.arch, version: app.getVersion(), hub: hub.listening,
+      window: Boolean(win && !win.isDestroyed() && win.isVisible()), media: media.state, volume: media.volume, wifi: sys.state };
+    console.log('PULSE_SMOKE ' + JSON.stringify(report));
+    app.exit(report.hub && report.window ? 0 : 1);
+  }, 12000);
 });
 
 app.on('second-instance', () => send('island:open'));

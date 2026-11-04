@@ -12,6 +12,19 @@ function parseWlan(out) {
   return { wifi: state === 'connected' ? 'on' : 'off', ssid: field('SSID'), signal: Number.isFinite(signal) ? signal : null };
 }
 
+// macOS: find the Wi-Fi device ("Hardware Port: Wi-Fi" → "Device: en0") in `networksetup -listallhardwareports`
+function macWifiDevice(out) {
+  const m = String(out).match(/Hardware Port:\s*(?:Wi-Fi|AirPort)\s*\r?\nDevice:\s*(\S+)/i);
+  return m ? m[1] : null;
+}
+// …then read `networksetup -getairportpower <dev>` and `-getairportnetwork <dev>`.
+// Newer macOS may hide the network name without location permission; then we still know Wi-Fi is on.
+function parseMacWifi(powerOut, networkOut) {
+  if (!/:\s*On\b/i.test(String(powerOut))) return { wifi: /:\s*Off\b/i.test(String(powerOut)) ? 'off' : 'none' };
+  const ssid = (String(networkOut).match(/Current Wi-Fi Network:\s*(.+)/i) || [])[1]?.trim() || '';
+  return { wifi: 'on', ssid, signal: null };
+}
+
 // CPU use is the share of non-idle time across all cores between two samples.
 function cpuTimes(cpus = os.cpus()) {
   let idle = 0, total = 0;
@@ -33,15 +46,22 @@ class SystemStatus extends EventEmitter {
       last = now;
       this.emit('stats', this.stats);
     }, 2000));
-    if (process.platform !== 'win32') return;
-    const poll = () => execFile('netsh', ['wlan', 'show', 'interfaces'], { windowsHide: true, timeout: 4000 }, (err, out) => {
-      const next = err ? { wifi: 'none' } : parseWlan(String(out));
-      if (JSON.stringify(next) !== JSON.stringify(this.state)) { this.state = next; this.emit('change'); }
-    });
+    const set = next => { if (JSON.stringify(next) !== JSON.stringify(this.state)) { this.state = next; this.emit('change'); } };
+    let poll;
+    if (process.platform === 'win32') {
+      poll = () => execFile('netsh', ['wlan', 'show', 'interfaces'], { windowsHide: true, timeout: 4000 }, (err, out) => set(err ? { wifi: 'none' } : parseWlan(String(out))));
+    } else if (process.platform === 'darwin') {
+      let dev = null;
+      const ns = (args, cb) => execFile('/usr/sbin/networksetup', args, { timeout: 4000 }, (err, out) => cb(err ? '' : String(out)));
+      poll = () => {
+        const read = d => ns(['-getairportpower', d], power => ns(['-getairportnetwork', d], net => set(parseMacWifi(power, net))));
+        if (dev) read(dev); else ns(['-listallhardwareports'], out => { dev = macWifiDevice(out); if (dev) read(dev); else set({ wifi: 'none' }); });
+      };
+    } else return;
     poll();
     this.timers.push(setInterval(poll, 15000));
   }
   stop() { for (const t of this.timers) clearInterval(t); }
 }
 
-module.exports = { SystemStatus, parseWlan, cpuPercent };
+module.exports = { SystemStatus, parseWlan, parseMacWifi, macWifiDevice, cpuPercent };

@@ -42,4 +42,10 @@ class Media extends EventEmitter {
   stop() { this.stopped = true; try { this.child?.stdin.end(); this.child?.kill(); } catch {} this.child = null; }
 }
 
-module.exports = { Media };
+// The right bridge for this computer: Windows (media.ps1) or macOS (JXA); elsewhere a silent stub.
+function createMedia() {
+  if (process.platform === 'darwin') return new (require('./media-mac').MacMedia)();
+  return new Media();
+}
+
+module.exports = { Media, createMedia };

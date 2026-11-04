@@ -6,6 +6,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const TIMEOUT_MS = 180_000;
+const os = require('node:os');
+
+// Apps opened from Finder or the Dock get a minimal PATH, not the one from your terminal,
+// so add the places Claude Code and Node usually live on a Mac.
+function askEnv() {
+  if (process.platform !== 'darwin') return process.env;
+  const home = os.homedir();
+  const extra = [`${home}/.local/bin`, `${home}/.claude/local`, `${home}/.npm-global/bin`, `${home}/.volta/bin`, '/opt/homebrew/bin', '/usr/local/bin'];
+  return { ...process.env, PATH: [...extra, process.env.PATH || '/usr/bin:/bin'].join(':') };
+}
 
 function createAsk({ dir }) {
   fs.mkdirSync(dir, { recursive: true });
@@ -14,7 +24,7 @@ function createAsk({ dir }) {
   function run(prompt) {
     if (child) return Promise.reject(new Error('Still answering the previous question.'));
     return new Promise((resolve, reject) => {
-      child = spawn('claude', ['-p', '--output-format', 'json'], { cwd: dir, shell: true, windowsHide: true });
+      child = spawn('claude', ['-p', '--output-format', 'json'], { cwd: dir, shell: true, windowsHide: true, env: askEnv() });
       let out = '', err = '';
       const timer = setTimeout(() => { child?.kill(); reject(new Error('Claude took too long to answer.')); }, TIMEOUT_MS);
       child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');

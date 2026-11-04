@@ -52,7 +52,7 @@ h1, h2, h3 { margin: 0; font-weight: inherit; }
 @media (prefers-reduced-motion: reduce) { #island, #island.opening, #island.springy { transition-duration: .01s; } }
 
 /* ---------- capsule ---------- */
-#pill { position: absolute; top: 10px; left: 50%; width: var(--pw, 252px); height: var(--ph, 38px); transform: translateX(-50%);
+#pill { position: absolute; top: var(--top, 10px); left: 50%; width: var(--pw, 252px); height: var(--ph, 38px); transform: translateX(-50%);
   transition: width .5s var(--spring), height .3s var(--settle), opacity .18s; }
 #island.is-open #pill { opacity: 0; pointer-events: none; }
 #pill-eyes { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -54%); transition: left .5s var(--spring); }
@@ -121,7 +121,7 @@ p { margin: 0; }
 @media (prefers-reduced-motion: reduce) { .eyes .eye, .spin { animation: none !important; } }
 
 /* ======================= open card ======================= */
-#panel { position: absolute; top: 10px; left: 30px; width: 660px; height: var(--open-h, 330px); display: grid; grid-template-columns: 62px 1fr;
+#panel { position: absolute; top: var(--top, 10px); left: 30px; width: 660px; height: var(--open-h, 330px); display: grid; grid-template-columns: 62px 1fr;
   opacity: 0; transform: translateY(-6px) scale(.985); transform-origin: 50% 0; pointer-events: none; transition: opacity .16s, transform .3s var(--settle); }
 #island.is-open #panel { opacity: 1; transform: none; pointer-events: auto; transition: opacity .3s .1s, transform .55s var(--spring); }
 
@@ -446,3 +446,7 @@ select { background: var(--well-hi); color: var(--paper); border: 0; border-radi
 .toggle.on { background: color-mix(in srgb, var(--brand) 35%, transparent); } .toggle.on::after { transform: translateX(16px); background: var(--paper); }
 input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 5px; border-radius: 3px; background: linear-gradient(90deg, var(--brand) var(--p, 50%), var(--well) var(--p, 50%)); outline: none; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--paper); }
+
+/* macOS: the island hangs from the top edge (around the notch), so its eyes sit a little lower in the capsule */
+html.mac #pill-eyes { transform: translate(-50%, -40%); }
+html.mac #island.open { border-radius: 0 0 26px 26px; }

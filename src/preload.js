@@ -9,6 +9,7 @@ const call = async (channel, ...args) => {
 const on = channel => fn => { const h = (_e, v) => fn(v); ipcRenderer.on(channel, h); return () => ipcRenderer.off(channel, h); };
 
 contextBridge.exposeInMainWorld('pulse', {
+  platform: process.platform,
   state: () => call('state'),
   onState: on('state'),
   onOpen: on('island:open'),

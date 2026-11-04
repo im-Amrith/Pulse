@@ -3,3 +3,4 @@ dist/
 release/
 build/
 *.log
+release-mac/

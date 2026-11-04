@@ -1,0 +1,29 @@
+# macOS build of Pulse (Windows is built by scripts/release.js).
+# Used by .github/workflows/mac.yml; the version comes from package.json.
+appId: com.amrithesh.pulse
+productName: Pulse
+copyright: Copyright © 2026 Amrithesh S Menon. All rights reserved.
+directories:
+  output: release-mac
+# hook scripts in src/bin are run by Claude Code as plain files, so no asar archive
+asar: false
+files:
+  - package.json
+  - src/**/*
+  - LICENSE.txt
+  - TERMS.txt
+  - "!src/main/media.ps1"
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.png
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: config/entitlements.mac.plist
+  entitlementsInherit: config/entitlements.mac.plist
+  artifactName: Pulse-mac-universal.${ext}
+  extendInfo:
+    LSUIElement: true
+    NSAppleEventsUsageDescription: Pulse controls Spotify and Music so you can play, pause and skip from the island.
+    NSLocalNetworkUsageDescription: Pulse uses your local network to send files to and from your phone.
+dmg:
+  title: Pulse ${version}

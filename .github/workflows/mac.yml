@@ -1,0 +1,80 @@
+# Builds Pulse for macOS (one universal app for Apple Silicon and Intel) on GitHub's Mac machines.
+#
+# Without Apple credentials: an ad-hoc signed .dmg. It runs, but macOS asks people to allow it in
+# System Settings → Privacy & Security → Open Anyway.
+# With these repository secrets set, the app is signed with your Developer ID and notarized by Apple:
+#   CSC_LINK (base64 .p12 of your "Developer ID Application" certificate), CSC_KEY_PASSWORD,
+#   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
+name: Mac build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  mac:
+    runs-on: macos-14
+    timeout-minutes: 40
+    env:
+      HAS_CERT: ${{ secrets.CSC_LINK != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: App icon
+        run: node scripts/make-icon.js build/icon.png
+
+      - name: Build (signed and notarized)
+        if: env.HAS_CERT == 'true'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npx --yes electron-builder@26.0.12 --mac dmg --universal -c.mac.notarize=true
+
+      - name: Build (ad-hoc signed)
+        if: env.HAS_CERT != 'true'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npx --yes electron-builder@26.0.12 --mac dir --universal -c.mac.identity=null
+          APP="release-mac/mac-universal/Pulse.app"
+          # Apple Silicon only runs code that carries at least an ad-hoc signature
+          codesign --force --deep --sign - --options runtime --entitlements config/entitlements.mac.plist "$APP"
+          codesign --verify --deep --strict "$APP"
+          mkdir -p dmg && cp -R "$APP" dmg/ && ln -s /Applications dmg/Applications
+          VERSION=$(node -p "require('./package.json').version")
+          hdiutil create -volname "Pulse $VERSION" -srcfolder dmg -ov -format UDZO release-mac/Pulse-mac-universal.dmg
+
+      - name: Smoke test (start Pulse, check it comes up)
+        run: |
+          APP=$(ls -d release-mac/mac*/Pulse.app | head -1)
+          lipo -archs "$APP/Contents/MacOS/Pulse"
+          PULSE_SMOKE_TEST=1 "$APP/Contents/MacOS/Pulse" > smoke.log 2>&1 || true
+          cat smoke.log | grep -v "^\s*$" | tail -20
+          grep -q 'PULSE_SMOKE .*"hub":true' smoke.log
+          grep -q '"window":true' smoke.log
+
+      - name: Checksum
+        run: shasum -a 256 release-mac/Pulse-mac-universal.dmg | tee release-mac/Pulse-mac-universal.dmg.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pulse-mac
+          path: |
+            release-mac/Pulse-mac-universal.dmg
+            release-mac/Pulse-mac-universal.dmg.sha256
+          if-no-files-found: error

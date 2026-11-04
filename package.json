@@ -1,6 +1,6 @@
 {
   "name": "pulse",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pulse: a Dynamic Island for Windows that follows Claude Code live.",
   "main": "src/main/main.js",
   "private": true,

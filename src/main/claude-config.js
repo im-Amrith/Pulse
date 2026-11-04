@@ -45,9 +45,15 @@ function createClaudeConfig({ token, node = process.env.PULSE_NODE || 'node', se
   function status() {
     let settings;
     try { settings = read(); } catch (e) { return { connected: false, error: e.message }; }
-    const ours = EVENTS.flatMap(ev => (settings.hooks?.[ev] || []).flatMap(g => (g.hooks || []).filter(isOurHook)));
-    const hooksOk = EVENTS.every(ev => ours.some(h => h.url === HOOK_URL || h.command === replyCommand))
-      && ours.filter(h => h.url).every(h => h.headers?.['X-Pulse-Token'] === token);
+    const hooksFor = ev => (settings.hooks?.[ev] || []).flatMap(g => (g.hooks || []).filter(isOurHook));
+    const ours = EVENTS.flatMap(hooksFor);
+    // connected = every event reports to us with the right token, the reply hook and our status line
+    // point at *this* copy of Pulse (they go stale when the app is moved)
+    const hooksOk = EVENTS.every(ev => hooksFor(ev).some(h => h.url === HOOK_URL))
+      && ours.filter(h => h.url).every(h => h.headers?.['X-Pulse-Token'] === token)
+      && hooksFor('Stop').some(h => h.command === replyCommand)
+      && ours.filter(h => h.command).every(h => h.command === replyCommand)
+      && (!isOurStatus(settings.statusLine) || settings.statusLine.command === statusCommand);
     const statusLine = !settings.statusLine ? 'none' : isOurStatus(settings.statusLine) ? 'pulse' : 'custom';
     return { connected: hooksOk, statusLine, settingsFile };
   }
@@ -84,7 +90,15 @@ function createClaudeConfig({ token, node = process.env.PULSE_NODE || 'node', se
     write(settings);
   }
 
-  return { status, connect, disconnect, getModel, setModel, EVENTS };
+  // Any Pulse entries at all (even ones pointing at an old location)?
+  function hasOurs() {
+    try {
+      const s = read();
+      return isOurStatus(s.statusLine) || Object.values(s.hooks || {}).some(groups => (groups || []).some(g => (g.hooks || []).some(isOurHook)));
+    } catch { return false; }
+  }
+
+  return { status, connect, disconnect, hasOurs, getModel, setModel, EVENTS };
 }
 
 module.exports = { createClaudeConfig, EVENTS, HOOK_URL };

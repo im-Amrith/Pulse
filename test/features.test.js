@@ -62,6 +62,42 @@ test('update check compares versions and reads the latest release', async () => 
   assert.equal((await offline.check()).available, false);
 });
 
+test('macOS: now-playing and volume parsing', () => {
+  const { parseMacMedia } = require('../src/main/media-mac');
+  // Spotify paused, Music playing: the one actually playing wins; Spotify durations arrive in ms and were converted by the script
+  const out = 'Spotify\tpaused\tSong A\tArtist A\t200.5\t12\thttps://i.example/a.jpg\nMusic\tplaying\tSong B\tArtist B\t180\t42.7\t\nVOL\t35\tfalse';
+  const { state, volume } = parseMacMedia(out, 1000);
+  assert.deepEqual([state.app, state.title, state.playing, state.duration, state.position, state.updatedAt], ['Music', 'Song B', true, 180, 43, 1000]);
+  assert.deepEqual(volume, { level: 35, muted: false });
+  assert.equal(parseMacMedia('VOL\t0\ttrue').state.active, false);
+  assert.deepEqual(parseMacMedia('VOL\t0\ttrue').volume, { level: 0, muted: true });
+  assert.equal(parseMacMedia('Spotify\tpaused\tX\tY\t100\t5\thttps://i.example/x.jpg').state.artUrl, 'https://i.example/x.jpg');
+});
+
+test('macOS: Wi-Fi device and status parsing', () => {
+  const { macWifiDevice, parseMacWifi } = require('../src/main/system');
+  const ports = 'Hardware Port: Ethernet\nDevice: en1\n\nHardware Port: Wi-Fi\nDevice: en0\nEthernet Address: aa:bb\n';
+  assert.equal(macWifiDevice(ports), 'en0');
+  assert.equal(macWifiDevice('Hardware Port: Thunderbolt Bridge\nDevice: bridge0\n'), null);
+  assert.deepEqual(parseMacWifi('Wi-Fi Power (en0): On', 'Current Wi-Fi Network: Home'), { wifi: 'on', ssid: 'Home', signal: null });
+  assert.deepEqual(parseMacWifi('Wi-Fi Power (en0): On', 'You are not associated with an AirPort network.'), { wifi: 'on', ssid: '', signal: null });
+  assert.deepEqual(parseMacWifi('Wi-Fi Power (en0): Off', ''), { wifi: 'off' });
+});
+
+test('claude config notices Pulse entries that point at an old location', () => {
+  const { createClaudeConfig } = require('../src/main/claude-config');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pulse-move-'));
+  const file = path.join(dir, 'settings.json');
+  const before = createClaudeConfig({ token: 'b'.repeat(48), node: '"C:/old/Pulse.exe"', settingsFile: file });
+  before.connect();
+  const after = createClaudeConfig({ token: 'b'.repeat(48), node: '"D:/new/Pulse.exe"', settingsFile: file });
+  assert.equal(after.hasOurs(), true);
+  assert.equal(after.status().connected, false, 'reply hook still points at the old exe');
+  after.connect();
+  assert.equal(after.status().connected, true);
+  assert.equal(createClaudeConfig({ token: 'c'.repeat(48), settingsFile: path.join(dir, 'none.json') }).hasOurs(), false);
+});
+
 test('cpuPercent from two samples', () => {
   assert.equal(cpuPercent({ idle: 100, total: 200 }, { idle: 150, total: 400 }), 75);
   assert.equal(cpuPercent({ idle: 0, total: 0 }, { idle: 0, total: 0 }), 0);

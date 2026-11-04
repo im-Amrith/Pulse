@@ -158,7 +158,11 @@ function drawTrace(mood) {
 }
 
 // ---------- the morph: one shape, clipped between capsule and card ----------
-const WIN_W = 720, WIN_H = 560, TOP = 10, CARD_W = 660;
+// On a Mac the island hangs from the very top edge with square top corners, so it wraps the notch.
+const IS_MAC = pulse.platform === 'darwin';
+const WIN_W = 720, WIN_H = 560, TOP = IS_MAC ? 0 : 10, CARD_W = 660;
+document.documentElement.style.setProperty('--top', `${TOP}px`);
+document.documentElement.classList.toggle('mac', IS_MAC);
 let openH = 330, pillMode = 'idle';
 function pillWidth() { return { idle: 252, wide: 340, notice: 420, lyrics: 470 }[pillMode] + (hovering && !open ? 14 : 0); }
 function shape() {
@@ -166,7 +170,8 @@ function shape() {
   const hgt = open ? openH : hovering ? 40 : 38;
   const r = open ? 26 : hgt / 2;
   const l = (WIN_W - w) / 2;
-  island.style.clipPath = `inset(${TOP}px ${WIN_W - l - w}px ${WIN_H - TOP - hgt}px ${l}px round ${r}px)`;
+  const corners = IS_MAC ? `0 0 ${r}px ${r}px` : `${r}px`;
+  island.style.clipPath = `inset(${TOP}px ${WIN_W - l - w}px ${WIN_H - TOP - hgt}px ${l}px round ${corners})`;
   island.style.setProperty('--pw', `${w}px`);
   island.style.setProperty('--ph', `${hgt}px`);
   island.style.setProperty('--open-h', `${openH}px`);
@@ -980,13 +985,13 @@ function renderSettings() {
     colourSettings(),
     row('Claude Code', S.claude.connected ? (S.claude.statusLine === 'custom' ? 'Connected. Your own status line is kept, so usage limits are not shown.' : 'Connected through hooks and a status line in settings.json.') : 'Not connected.',
       S.claude.connected ? h('button', { class: 'btn no', text: 'Disconnect', onclick: () => act(() => pulse.disconnect()) }) : h('button', { class: 'btn primary', text: 'Connect', onclick: () => act(() => pulse.connect()) })),
-    row('Start with Windows', null, toggle(S.startWithWindows, () => act(() => pulse.setLogin(!S.startWithWindows)), 'Start with Windows')),
+    row(IS_MAC ? 'Open at login' : 'Start with Windows', null, toggle(S.startWithWindows, () => act(() => pulse.setLogin(!S.startWithWindows)), IS_MAC ? 'Open at login' : 'Start with Windows')),
     pref('autoOpen', 'Open when Claude needs you', 'Unfolds for permission requests and questions.'),
     pref('sound', 'Sounds', 'A soft chime when Claude finishes or needs you.'),
     pref('lyrics', 'Lyrics', 'Shows synced lyrics while music plays. Songs are looked up on lrclib.net.'),
     pref('notifications', 'Windows notifications', 'Only while Pulse is not in focus.'),
     pref('watchDownloads', 'Watch Downloads', 'Finished downloads go to the Tray and flash in the island.'),
-    row('Shortcut', 'Ctrl+Alt+P unfolds Pulse and Esc folds it in.', null),
+    row('Shortcut', `${IS_MAC ? '⌘⌥P' : 'Ctrl+Alt+P'} unfolds Pulse and Esc folds it in.`, null),
     versionRow(row),
     row('Terms of use', 'Pulse is provided as is, without warranty. Not affiliated with Anthropic.',
       h('button', { class: 'btn', text: 'Read', onclick: () => act(() => pulse.openTerms()) }))));
