@@ -9,7 +9,8 @@
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
     "release": "node scripts/release.js",
-    "deploy": "node scripts/deploy.js"
+    "deploy": "node scripts/deploy.js",
+    "helper": "node scripts/build-helper.js"
   },
   "author": "Amrithesh S Menon",
   "license": "SEE LICENSE IN LICENSE.txt",

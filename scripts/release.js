@@ -42,7 +42,8 @@ async function main() {
   const app = path.join(DIST, 'resources', 'app');
   fs.mkdirSync(app, { recursive: true });
   for (const f of ['package.json', 'package-lock.json', 'LICENSE.txt', 'TERMS.txt']) fs.copyFileSync(path.join(ROOT, f), path.join(app, f));
-  fs.cpSync(path.join(ROOT, 'src'), path.join(app, 'src'), { recursive: true });
+  execFileSync(process.execPath, [path.join(__dirname, 'build-helper.js')], { stdio: 'inherit' });
+  fs.cpSync(path.join(ROOT, 'src'), path.join(app, 'src'), { recursive: true, filter: f => !f.includes(path.join('src', 'native')) });
   execSync('npm install --omit=dev --no-audit --no-fund --loglevel=error', { cwd: app, stdio: 'inherit' });
   for (const f of ['LICENSE.txt', 'TERMS.txt']) fs.copyFileSync(path.join(ROOT, f), path.join(DIST, f));
 
@@ -61,6 +62,7 @@ async function main() {
   });
 
   sign(path.join(DIST, 'Pulse.exe'));
+  sign(path.join(app, 'src', 'main', 'bin', 'pulse-media.exe'));
 
   step('Zipping');
   fs.rmSync(ZIP, { force: true });

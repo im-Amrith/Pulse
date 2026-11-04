@@ -88,7 +88,7 @@ function createWindow() {
     alwaysOnTop: true, hasShadow: false, show: false, backgroundColor: '#00000000', roundedCorners: false,
     // macOS: a non-activating panel floats over full-screen apps without stealing focus from them
     ...(IS_MAC ? { type: 'panel', enableLargerThanScreen: true, fullscreenable: false } : {}),
-    webPreferences: { preload: path.join(__dirname, '..', 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false },
+    webPreferences: { preload: path.join(__dirname, '..', 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
   });
   place();
   win.setAlwaysOnTop(true, 'screen-saver');
@@ -108,9 +108,11 @@ function trackCursor() {
   setInterval(() => {
     if (!win || win.isDestroyed()) return;
     const p = screen.getCursorScreenPoint(), b = win.getBounds();
-    const msg = `${p.x - (b.x + b.width / 2)},${p.y - b.y}`;
+    // clamped to where the eyes can still react, and snapped to 6px, so far-away or tiny moves send nothing
+    const q = (v, lo, hi) => Math.round(Math.max(lo, Math.min(hi, v)) / 6) * 6;
+    const msg = `${q(p.x - (b.x + b.width / 2), -540, 540)},${q(p.y - b.y, -360, 420)}`;
     if (msg !== last) { last = msg; const [dx, dy] = msg.split(',').map(Number); send('cursor', { dx, dy }); }
-  }, 50);
+  }, 80);
 }
 
 // macOS menu-bar icons are black "template" images that the system tints for light and dark menu bars.

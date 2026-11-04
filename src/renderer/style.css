@@ -34,8 +34,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 h1, h2, h3 { margin: 0; font-weight: inherit; }
 
 /* ======================= the morphing shape ======================= */
-#shell { position: fixed; inset: 0; filter: drop-shadow(0 14px 26px rgba(4, 6, 18, .5)) drop-shadow(0 0 0 transparent); transition: filter .6s var(--settle); }
-#shell.glow { filter: drop-shadow(0 14px 26px rgba(4, 6, 18, .5)) drop-shadow(0 0 10px color-mix(in srgb, var(--mood) 70%, transparent)); }
+/* one soft shadow, and a faint mood rim only when something needs you; small blur radii keep the GPU cost low */
+#shell { position: fixed; inset: 0; filter: drop-shadow(0 8px 12px rgba(4, 6, 18, .45)); transition: filter .6s var(--settle); }
+#shell.glow { filter: drop-shadow(0 8px 12px rgba(4, 6, 18, .45)) drop-shadow(0 0 4px color-mix(in srgb, var(--mood) 45%, transparent)); }
 #island {
   position: absolute; inset: 0; width: 720px; height: 560px;
   background: radial-gradient(90% 60% at 50% 0%, var(--ink-hi), var(--ink) 70%);
@@ -140,7 +141,7 @@ p { margin: 0; }
 #top { height: 52px; flex: none; display: flex; align-items: center; gap: 16px; padding: 0 16px 0 22px; }
 #title { font: 600 21px/1 var(--display); font-stretch: 87.5%; letter-spacing: -.005em; white-space: nowrap; }
 #trace { flex: 1; height: 30px; min-width: 60px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); overflow: visible; }
-#trace-path { fill: none; stroke: var(--mood); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 0 3px var(--mood)); transition: stroke .5s; animation: run var(--trace-speed, 4s) linear infinite; }
+#trace-path { fill: none; stroke: var(--mood); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; transition: stroke .5s; animation: run var(--trace-speed, 4s) linear infinite; }
 @keyframes run { to { transform: translateX(-200px); } }
 @media (prefers-reduced-motion: reduce) { #trace-path { animation: none; } }
 #meta { display: flex; align-items: center; gap: 12px; color: var(--mist); font: 500 13px/1 var(--display); font-variant-numeric: tabular-nums; }

@@ -2,6 +2,7 @@
 // Runs media.ps1 as a long-lived hidden child and exposes now-playing state + controls.
 const { spawn } = require('node:child_process');
 const path = require('node:path');
+const fs = require('node:fs');
 const { EventEmitter } = require('node:events');
 
 class Media extends EventEmitter {
@@ -10,9 +11,16 @@ class Media extends EventEmitter {
   start() {
     if (process.platform !== 'win32' || this.child) return;
     this.stopped = false;
+    // The compiled helper (~20 MB) speaks the same protocol as media.ps1 (~90 MB); PowerShell is the fallback.
+    const helper = path.join(__dirname, 'bin', 'pulse-media.exe');
+    const useHelper = !this.helperFailed && fs.existsSync(helper);
     const script = path.join(__dirname, 'media.ps1');
-    this.child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script],
-      { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] });
+    this.child = useHelper
+      ? spawn(helper, [], { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] })
+      : spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script],
+        { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] });
+    let spoke = false;
+    this.child.on('error', () => {});
     let buf = '';
     this.child.stdout.setEncoding('utf8');
     this.child.stdout.on('data', chunk => {
@@ -22,7 +30,7 @@ class Media extends EventEmitter {
         const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
         if (!line) continue;
         let msg; try { msg = JSON.parse(line); } catch { continue; }
-        this.restarts = 0;
+        this.restarts = 0; spoke = true;
         if (msg.type === 'volume') this.volume = { level: msg.level, muted: Boolean(msg.muted) };
         else this.state = msg;
         this.emit('change');
@@ -30,6 +38,7 @@ class Media extends EventEmitter {
     });
     this.child.on('exit', () => {
       this.child = null;
+      if (useHelper && !spoke) { this.helperFailed = true; this.restarts--; }  // never spoke: switch to PowerShell
       if (!this.stopped && this.restarts++ < 5) setTimeout(() => this.start(), 3000 * this.restarts);
     });
   }

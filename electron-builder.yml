@@ -13,6 +13,8 @@ files:
   - LICENSE.txt
   - TERMS.txt
   - "!src/main/media.ps1"
+  - "!src/main/bin/**"
+  - "!src/native/**"
 mac:
   category: public.app-category.productivity
   icon: build/icon.png
