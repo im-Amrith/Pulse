@@ -7,6 +7,26 @@
   <description>Notes from building Pulse, an open-source island for Claude Code on Windows and macOS.</description>
   <language>en</language>
   <lastBuildDate>Thu, 05 Nov 2026 09:00:00 GMT</lastBuildDate>
-
+  <item>
+    <title>How Pulse sits between Claude Code and your Allow button</title>
+    <link>https://pulse-bot.dev/blog/claude-code-hooks-allow-button/</link>
+    <guid isPermaLink="true">https://pulse-bot.dev/blog/claude-code-hooks-allow-button/</guid>
+    <pubDate>Thu, 05 Nov 2026 09:00:00 GMT</pubDate>
+    <description>Claude Code HTTP hooks, a PermissionRequest held open until you answer, a per-install token checked with timingSafeEqual, the Stop hook reply trick, and exactly what Connect changes in settings.json.</description>
+  </item>
+  <item>
+    <title>Cutting an Electron app’s memory from 530 MB to 315 MB with a 12 KB native helper</title>
+    <link>https://pulse-bot.dev/blog/electron-memory-530-to-315/</link>
+    <guid isPermaLink="true">https://pulse-bot.dev/blog/electron-memory-530-to-315/</guid>
+    <pubDate>Thu, 05 Nov 2026 09:00:00 GMT</pubDate>
+    <description>How Pulse 0.2.1 cut memory at launch by replacing a PowerShell media bridge with a tiny C# helper built by the compiler that ships with Windows, and by drawing less glow.</description>
+  </item>
+  <item>
+    <title>Why your Mac says 99% RAM (and how Activity Monitor really counts it)</title>
+    <link>https://pulse-bot.dev/blog/mac-99-percent-ram/</link>
+    <guid isPermaLink="true">https://pulse-bot.dev/blog/mac-99-percent-ram/</guid>
+    <pubDate>Thu, 05 Nov 2026 09:00:00 GMT</pubDate>
+    <description>os.freemem() on macOS leaves out file cache, so a healthy Mac looks full. Here’s how Activity Monitor counts Memory Used, and how to get the same number from vm_stat.</description>
+  </item>
 </channel>
 </rss>

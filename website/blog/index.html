@@ -41,7 +41,11 @@
     <div class="kicker">Blog</div>
     <h1>Notes from building Pulse.</h1>
     <p class="lede">How the island works under the hood: memory, Claude Code hooks, and the small details. Written by the person who makes it.</p>
-    <p class="empty">The first posts are on their way.</p>
+    <ol class="posts">
+      <li><a href="/blog/claude-code-hooks-allow-button/"><time datetime="2026-11-05">5 November 2026</time><h2>How Pulse sits between Claude Code and your Allow button</h2><p>Claude Code HTTP hooks, a PermissionRequest held open until you answer, a per-install token checked with timingSafeEqual, the Stop hook reply trick, and exactly what Connect changes in settings.json.</p></a></li>
+      <li><a href="/blog/electron-memory-530-to-315/"><time datetime="2026-11-05">5 November 2026</time><h2>Cutting an Electron app’s memory from 530 MB to 315 MB with a 12 KB native helper</h2><p>How Pulse 0.2.1 cut memory at launch by replacing a PowerShell media bridge with a tiny C# helper built by the compiler that ships with Windows, and by drawing less glow.</p></a></li>
+      <li><a href="/blog/mac-99-percent-ram/"><time datetime="2026-11-05">5 November 2026</time><h2>Why your Mac says 99% RAM (and how Activity Monitor really counts it)</h2><p>os.freemem() on macOS leaves out file cache, so a healthy Mac looks full. Here’s how Activity Monitor counts Memory Used, and how to get the same number from vm_stat.</p></a></li>
+    </ol>
     <p class="rss">Follow along with the <a href="/blog/feed.xml">RSS feed</a>.</p>
   </div>
 </main>

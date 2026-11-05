@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cutting an Electron app’s memory from 530 MB to 315 MB with a 12 KB native helper · Pulse blog</title>
+<meta name="description" content="How Pulse 0.2.1 cut memory at launch by replacing a PowerShell media bridge with a tiny C# helper built by the compiler that ships with Windows, and by drawing less glow.">
+<meta name="pulse:date" content="2026-11-05">
+<link rel="canonical" href="https://pulse-bot.dev/blog/electron-memory-530-to-315/">
+<link rel="alternate" type="application/rss+xml" title="Pulse blog" href="https://pulse-bot.dev/blog/feed.xml">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Pulse">
+<meta property="og:title" content="Cutting an Electron app’s memory from 530 MB to 315 MB with a 12 KB native helper">
+<meta property="og:description" content="How Pulse 0.2.1 cut memory at launch by replacing a PowerShell media bridge with a tiny C# helper built by the compiler that ships with Windows, and by drawing less glow.">
+<meta property="og:url" content="https://pulse-bot.dev/blog/electron-memory-530-to-315/">
+<meta property="og:image" content="https://pulse-bot.dev/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-05">
+<meta property="article:author" content="Amrithesh S Menon">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#090b16">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='20' width='56' height='24' rx='12' fill='%23171a2e'/%3E%3Cellipse cx='26' cy='32' rx='3.4' ry='5' fill='%23e9ebff'/%3E%3Cellipse cx='38' cy='32' rx='3.4' ry='5' fill='%23e9ebff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/blog/blog.css">
+<script src="/star.js" defer></script>
+</head>
+<body>
+<!-- pulse:nav -->
+<header class="nav">
+  <a class="logo" href="/" aria-label="Pulse home"><span class="mark" aria-hidden="true"><i></i><i></i></span>Pulse</a>
+  <nav class="nav-links" aria-label="Primary">
+    <a href="/#features">Features</a>
+    <a href="/#privacy">Privacy</a>
+    <a href="/blog/" aria-current="page">Blog</a>
+  </nav>
+  <a class="btn btn-primary" href="/#download">Download</a>
+  <a class="btn btn-ghost star" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener" aria-label="Star Pulse on GitHub (opens in a new tab)"><svg class="gh" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span class="star-label">Star on GitHub</span><span class="star-count" hidden></span></a>
+</header>
+<!-- /pulse:nav -->
+<main>
+  <div class="wrap">
+    <a class="kicker" href="/blog/" style="text-decoration:none">← Blog</a>
+    <h1>From 530 MB to 315 MB with a 12 KB helper.</h1>
+    <p class="lede">Pulse 0.2.1 uses about 40% less memory than 0.2.0. Most of the saving came from outside the Electron app: a PowerShell bridge became a 12 KB C# program, built with the compiler that ships with Windows.</p>
+    <div class="meta"><span>Amrithesh S Menon</span><time datetime="2026-11-05">5 November 2026</time><span>6 min read</span></div>
+    <article class="post">
+      <p>Pulse is a small island that hangs from the top of your screen. It shows what Claude Code is doing, lets you allow or deny its requests, and keeps music, timers and notes one hover away. It’s an Electron app, so you can guess where this is going: in 0.2.0, Pulse used about <strong>530 MB</strong> of memory right after launch on Windows.</p>
+      <p>That’s a lot for something whose job is to sit quietly at the top of the screen. Version 0.2.1 brought it down to about <strong>315 MB</strong>. This post is about where the memory went, what I changed, and what I didn’t manage to change.</p>
+
+      <figure>
+        <img src="/assets/shots/pill-working.png" alt="The folded Pulse capsule at the top of the screen, showing that Claude Code is editing a file" width="692" loading="lazy">
+        <figcaption>The folded island. Most of the time, this is all of Pulse you see.</figcaption>
+      </figure>
+
+      <h2>Where 530 MB went</h2>
+      <p>An Electron app is never one process. Pulse runs the usual set: the main Node process, one renderer for the island, Chromium’s GPU process, a network utility process, and so on. Then it adds one of its own: a long-running child that reads “now playing” from Windows and controls the volume.</p>
+      <p>That child was the first thing I looked at, because it was the easiest to blame. It was a PowerShell script, <code>media.ps1</code>, and on its own it used about <strong>90 MB</strong>.</p>
+
+      <h2>Why a PowerShell bridge costs 90 MB</h2>
+      <p>The bridge reads two things. “Now playing” comes from the Windows Runtime API <code>GlobalSystemMediaTransportControlsSessionManager</code>, the same source as the media flyout next to the volume control, so it works with Spotify, browsers and most players. The volume comes from Core Audio’s <code>IAudioEndpointVolume</code> COM interface.</p>
+      <p>PowerShell is a convenient place to call both. It is not a light one. A PowerShell process loads the .NET runtime, the PowerShell engine and its modules. The Core Audio part needed a few COM interface definitions, so the script compiled C# at startup with <code>Add-Type</code>:</p>
+<pre><code>Add-Type -AssemblyName System.Runtime.WindowsRuntime
+
+Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices;
+namespace PulseAudio {
+  [ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"),
+   InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IAudioEndpointVolume { /* ... */ }
+  ...
+'@</code></pre>
+      <p>So every time Pulse started, it launched a scripting engine and a C# compiler to run what is really a small loop: read the current track, read the volume, print a line of JSON when something changes, and read commands like <code>toggle</code> or <code>vol 40</code> from standard input.</p>
+
+      <h2>The same loop as a 12 KB program</h2>
+      <p>If the script was already C# in disguise, the obvious step was to make it real C#. <code>src/native/PulseMedia.cs</code> is about 180 lines. It speaks exactly the same line protocol as the script, so nothing else in Pulse had to change:</p>
+<pre><code>// stdout: one JSON line per change, {"type":"media",...} or {"type":"volume",...}
+// stdin:  toggle | next | prev | seek &lt;seconds&gt; | vol &lt;0-100&gt; | mute &lt;0|1&gt;</code></pre>
+      <p>The main loop polls every 700 ms and only writes when something has changed:</p>
+<pre><code>var key = artKey + "|" + playing + "|" + tl.LastUpdatedTime.Ticks;
+if (key != lastKey) {
+  Emit("{\"type\":\"media\",\"active\":true,\"title\":" + Str(title) + ...);
+  lastKey = key;
+}
+Thread.Sleep(700);</code></pre>
+      <p>The part I like most is how it’s built. Every copy of Windows 10 and 11 ships .NET Framework 4.8, and with it <code>csc.exe</code>, the C# compiler. So there’s no .NET SDK to install and no NuGet. <code>scripts/build-helper.js</code> calls that compiler directly and references the Windows Runtime metadata (<code>Windows.winmd</code>, which comes from the Windows SDK):</p>
+<pre><code>const FW = path.join(WIN, 'Microsoft.NET', 'Framework64', 'v4.0.30319');
+const args = ['/nologo', '/optimize+', '/platform:anycpu', '/target:exe',
+  `/out:${out}`, ...refs.map(r =&gt; `/r:${r}`), src];
+execFileSync(path.join(FW, 'csc.exe'), args, { stdio: 'pipe' });</code></pre>
+      <p>The result, <code>pulse-media.exe</code>, is <strong>12,288 bytes</strong>. While running, it uses about <strong>19 MB</strong>, against about 90 MB for the PowerShell bridge. It runs on the framework that’s already in Windows, so it adds nothing to the download beyond those 12 KB. CI compiles it on every push to make sure it still builds.</p>
+
+      <h3>Keeping the old bridge as a fallback</h3>
+      <p>I didn’t delete the PowerShell script. If the helper is missing, or starts and exits without ever printing a line, Pulse falls back to the script:</p>
+<pre><code>this.child.on('exit', () =&gt; {
+  this.child = null;
+  // never spoke: switch to PowerShell
+  if (useHelper &amp;&amp; !spoke) { this.helperFailed = true; this.restarts--; }
+  if (!this.stopped &amp;&amp; this.restarts++ &lt; 5) setTimeout(() =&gt; this.start(), 3000 * this.restarts);
+});</code></pre>
+      <p>“Never spoke” is a cheap and useful test. A helper that crashes on some unusual Windows setup costs you 70 MB, not your music controls.</p>
+
+      <h2>The glow: cheap to write, not cheap to draw</h2>
+      <p>The island is a transparent, always-on-top window, and its shape is drawn in CSS. In 0.2.0 it had a soft shadow plus a coloured glow that changes with Claude’s mood:</p>
+<pre><code>#shell { filter: drop-shadow(0 14px 26px rgba(4, 6, 18, .5)) drop-shadow(0 0 0 transparent); }
+#shell.glow { filter: drop-shadow(0 14px 26px rgba(4, 6, 18, .5))
+                      drop-shadow(0 0 10px color-mix(in srgb, var(--mood) 70%, transparent)); }</code></pre>
+      <p>A CSS <code>filter</code> on a large element isn’t free. The browser draws the element into an offscreen texture, then blurs it. The bigger the blur radius, the bigger the area it has to sample, and because the island animates, that work comes back on every frame. On a transparent window the size of the open panel, those textures add up in the GPU process.</p>
+      <p>0.2.1 uses one smaller shadow, and adds the coloured rim only when something needs you:</p>
+<pre><code>/* one soft shadow, and a faint mood rim only when something needs you;
+   small blur radii keep the GPU cost low */
+#shell { filter: drop-shadow(0 8px 12px rgba(4, 6, 18, .45)); }
+#shell.glow { filter: drop-shadow(0 8px 12px rgba(4, 6, 18, .45))
+                      drop-shadow(0 0 4px color-mix(in srgb, var(--mood) 45%, transparent)); }</code></pre>
+      <p>The heartbeat line in the header also lost its <code>drop-shadow</code>. It’s an SVG path animated forever, so its glow was being redrawn forever too. Honestly, I can’t see the difference at a normal viewing distance.</p>
+
+      <h2>Cursor polling: send less, less often</h2>
+      <p>The eyes glance at your cursor. The window ignores mouse events unless you’re over the island, so it can’t just listen for <code>mousemove</code>. The main process asks Electron for the cursor position and sends it to the renderer. In 0.2.0 that happened every 50 ms, with the exact pixel offset, so almost every tick sent a message and re-rendered the eyes.</p>
+      <p>Now the position is clamped to the range where the eyes can still react, snapped to 6 px, and sent every 80 ms only if it changed:</p>
+<pre><code>// clamped to where the eyes can still react, and snapped to 6px,
+// so far-away or tiny moves send nothing
+const q = (v, lo, hi) =&gt; Math.round(Math.max(lo, Math.min(hi, v)) / 6) * 6;
+const msg = `${q(p.x - (b.x + b.width / 2), -540, 540)},${q(p.y - b.y, -360, 420)}`;
+if (msg !== last) { last = msg; send('cursor', { dx, dy }); }</code></pre>
+      <p>This saves CPU more than memory. When your mouse is on the other side of the screen, Pulse now sends nothing at all. I also turned off the spellchecker for the island’s window (<code>spellcheck: false</code>), so Chromium doesn’t load dictionaries for a few small text fields.</p>
+
+      <h2>The numbers, honestly</h2>
+      <table>
+        <thead><tr><th></th><th>0.2.0</th><th>0.2.1</th></tr></thead>
+        <tbody>
+          <tr><td>Pulse right after launch (Windows)</td><td>~530 MB</td><td>~315 MB</td></tr>
+          <tr><td>Media bridge</td><td>~90 MB (PowerShell)</td><td>~19 MB (native helper)</td></tr>
+          <tr><td>Helper on disk</td><td>n/a</td><td>12 KB</td></tr>
+        </tbody>
+      </table>
+      <p>The helper explains about 70 MB of the 215 MB saved. The rest came with the rendering changes in the same release. I measured the totals before and after, not each change on its own, so I can’t tell you exactly how the remaining ~145 MB splits between the shadow, the trace line and the spellchecker. If you want to measure it properly, the code is all there, and I’d love the numbers.</p>
+      <p>315 MB is still a lot. That’s the cost of Electron: Chromium plus Node, for a small window. I chose it so one person could ship the same plain-JavaScript app on Windows and macOS without a build step, and I still think that was right for a first version. But I’d rather say the number out loud than hide it.</p>
+
+      <h2>What I took away</h2>
+      <ul>
+        <li><strong>Count processes, not just your app.</strong> The biggest single saving wasn’t in the Electron app at all. It was a child process I’d forgotten was running all the time.</li>
+        <li><strong>Windows ships a C# compiler.</strong> For small native helpers on Windows, <code>csc.exe</code> from .NET Framework 4.8 is a zero-install option that a lot of people forget about.</li>
+        <li><strong>Keep the fallback.</strong> Making the new path fast is good. Making sure it can fail without breaking a feature is better.</li>
+        <li><strong>Filters on big, animated, transparent elements are expensive.</strong> Small blur radii and glow only when it means something.</li>
+      </ul>
+      <p>The helper is in <a href="https://github.com/im-Amrith/Pulse/blob/main/src/native/PulseMedia.cs"><code>src/native/PulseMedia.cs</code></a> and the build script is in <a href="https://github.com/im-Amrith/Pulse/blob/main/scripts/build-helper.js"><code>scripts/build-helper.js</code></a>. If you can make Pulse lighter still, pull requests are very welcome.</p>
+    </article>
+    <aside class="post-end">
+      <p>Pulse is free and open source for Windows and macOS. It’s an independent project for Claude Code, not affiliated with or endorsed by Anthropic.</p>
+      <div class="row"><a class="btn btn-primary" href="/#download">Download Pulse</a><a class="btn btn-ghost" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener">Read the code on GitHub</a></div>
+    </aside>
+  </div>
+</main>
+<!-- pulse:footer -->
+<footer>
+  <div class="foot-row"><span>Pulse for Windows and macOS. Free and open source (MIT). Made by Amrithesh S Menon.</span><a class="btn btn-ghost star" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener" aria-label="Star Pulse on GitHub (opens in a new tab)"><svg class="gh" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span class="star-label">Star on GitHub</span><span class="star-count" hidden></span></a></div>
+  <nav class="foot-links" aria-label="More"><a href="/blog/">Blog</a><a href="/blog/feed.xml">RSS</a><a href="/terms">Terms of use</a><a href="https://github.com/im-Amrith/Pulse">Source code</a><a href="https://github.com/im-Amrith/Pulse-releases/releases">Release notes</a></nav>
+  <span class="disclaimer">Pulse is an independent project and is not affiliated with or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic, PBC.</span>
+</footer>
+<!-- /pulse:footer -->
+</body>
+</html>
