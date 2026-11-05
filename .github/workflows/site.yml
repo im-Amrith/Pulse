@@ -1,0 +1,54 @@
+# Publishes the website (website/) to Cloudflare Pages, project "pulse" (https://pulse-bot.dev),
+# whenever a change to it lands on main. It runs the same steps as `npm run deploy` (scripts/deploy.js).
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   a token with Account → Cloudflare Pages → Edit only
+#   CLOUDFLARE_ACCOUNT_ID  the Cloudflare account that owns the "pulse" project
+# Until they're set, the deploy step is skipped and the run still passes.
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'scripts/deploy.js'
+      - 'scripts/blog.js'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# one deploy at a time; a newer push replaces a deploy that hasn't started yet
+concurrency:
+  group: site-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # no npm install: the site needs no dependencies, and wrangler is fetched at a pinned version by deploy.js
+      - name: Build the site
+        run: node scripts/deploy.js --build
+
+      - name: Skip (no Cloudflare secrets yet)
+        if: env.HAS_TOKEN != 'true'
+        run: echo "::notice::CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID isn't set, so the site was built but not deployed."
+
+      - name: Deploy to Cloudflare Pages
+        if: env.HAS_TOKEN == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/deploy.js

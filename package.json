@@ -11,7 +11,8 @@
     "release": "node scripts/release.js",
     "deploy": "node scripts/deploy.js",
     "helper": "node scripts/build-helper.js",
-    "film": "node scripts/film.js"
+    "film": "node scripts/film.js",
+    "blog": "node scripts/blog.js"
   },
   "author": "Amrithesh S Menon",
   "license": "MIT",

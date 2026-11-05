@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+  <title>Pulse blog</title>
+  <link>https://pulse-bot.dev/blog/</link>
+  <atom:link href="https://pulse-bot.dev/blog/feed.xml" rel="self" type="application/rss+xml"/>
+  <description>Notes from building Pulse, an open-source island for Claude Code on Windows and macOS.</description>
+  <language>en</language>
+  <lastBuildDate>Thu, 05 Nov 2026 09:00:00 GMT</lastBuildDate>
+
+</channel>
+</rss>
