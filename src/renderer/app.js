@@ -206,6 +206,9 @@ pulse.onFinished(kind => { chime(kind === 'failed' ? 'fail' : 'done'); });
 pulse.onReminder(() => { chime('ask'); render(); });
 let downloadNotice = null;
 pulse.onDownload(name => { downloadNotice = { name, at: Date.now() }; render(); setTimeout(render, 6100); });
+// a message the system wouldn't show as a notification (see showNotification in main.js)
+let appNotice = null;
+pulse.onNotice(n => { appNotice = { ...n, at: Date.now() }; chime('ask'); render(); setTimeout(render, 10100); });
 pulse.onStats(s => {
   const el = $('#stats');
   if (el && s.cpu != null) el.replaceChildren('CPU ', h('b', { text: `${s.cpu}%` }), '  RAM ', h('b', { text: `${s.ram}%` }));
@@ -369,6 +372,10 @@ function renderPill() {
     mode = 'notice';
     left.append(h('span', { style: 'color:var(--mint)' }, icon('download', 15)), h('span', { class: 'pill-text', style: 'color:var(--paper)', text: downloadNotice.name }));
     right.append(label('In Tray', 'var(--mint)'));
+  } else if (appNotice && Date.now() - appNotice.at < 10000) {
+    mode = 'notice';
+    left.append(h('span', { style: 'color:var(--brand)' }, icon(appNotice.icon || 'bell', 15)), h('span', { class: 'pill-text', style: 'color:var(--paper)', text: appNotice.text }));
+    right.append(label(appNotice.tag || '', 'var(--mist)'));
   } else if (soonReminder()) {
     const r = soonReminder();
     mode = 'notice';
@@ -994,7 +1001,9 @@ function renderSettings() {
     pref('autoOpen', 'Open when Claude needs you', 'Unfolds for permission requests and questions.'),
     pref('sound', 'Sounds', 'A soft chime when Claude finishes or needs you.'),
     pref('lyrics', 'Lyrics', 'Shows synced lyrics while music plays. Songs are looked up on lrclib.net.'),
-    pref('notifications', 'Windows notifications', 'Only while Pulse is not in focus.'),
+    pref('notifications', IS_MAC ? 'Notifications' : 'Windows notifications', S.appInfo?.notificationsBlocked
+      ? (IS_MAC ? 'macOS only shows notifications from apps signed by Apple, so for now Pulse shows them in the island instead.' : 'Windows didn’t show Pulse’s notifications, so Pulse shows them in the island instead.')
+      : 'Only while Pulse is not in focus.'),
     pref('watchDownloads', 'Watch Downloads', 'Finished downloads go to the Tray and flash in the island.'),
     row('Shortcut', `${IS_MAC ? '⌘⌥P' : 'Ctrl+Alt+P'} unfolds Pulse and Esc folds it in.`, null),
     versionRow(row),

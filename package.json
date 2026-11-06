@@ -24,7 +24,7 @@
     "url": "https://github.com/im-Amrith/Pulse/issues"
   },
   "devDependencies": {
-    "electron": "^38.2.0",
+    "electron": "^42.11.16",
     "rcedit": "^4.0.1"
   },
   "dependencies": {
@@ -32,8 +32,5 @@
   },
   "engines": {
     "node": ">=22"
-  },
-  "allowScripts": {
-    "electron": true
   }
 }
