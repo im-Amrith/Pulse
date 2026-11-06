@@ -73,20 +73,24 @@ async function injectCursor(js) {
 }
 
 // Saves every painted frame (raw BGRA, deflated off the main thread) with its time, plus named marks.
+// In film mode the window renders offscreen, which paints at 60 fps; a frame subscription on a normal window tops out near 30.
 function record(wc, outDir) {
   const frames = [], marks = [];
   let n = 0, pending = 0;
   const t0 = Date.now();
-  wc.beginFrameSubscription(false, image => {
+  const save = image => {
     const file = `f${String(n++).padStart(5, '0')}.bgra.z`, { width: w, height: h } = image.getSize();
     frames.push({ file, t: Date.now() - t0, w, h });
     pending++;
     zlib.deflate(image.toBitmap(), { level: 1 }, (err, z) => { if (err) { pending--; return; } fs.writeFile(path.join(outDir, file), z, () => pending--); });
-  });
+  };
+  const offscreen = wc.isOffscreen();
+  const onPaint = (e, dirty, image) => save(image);
+  if (offscreen) { wc.setFrameRate(60); wc.on('paint', onPaint); wc.invalidate(); } else wc.beginFrameSubscription(false, save);
   return {
     mark: name => marks.push({ name, t: Date.now() - t0 }),
     async finish(win) {
-      wc.endFrameSubscription();
+      if (offscreen) wc.off('paint', onPaint); else wc.endFrameSubscription();
       while (pending > 0) await sleep(100);   // let the last writes finish
       fs.writeFileSync(path.join(outDir, 'frames.json'), JSON.stringify({ frames, marks, scale: win.webContents.zoomFactor }, null, 1));
       console.log(`FILM done: ${frames.length} frames in ${outDir}`);

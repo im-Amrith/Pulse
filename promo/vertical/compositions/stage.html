@@ -186,7 +186,7 @@
 
                   <!-- the real island, recorded from Pulse in film mode (transparent, 2x) -->
                   <div id="st-hook-wrap">
-                    <video id="st-v-idle" class="clip" src="assets/island/idle.webm" data-start="0" data-duration="3.4" data-media-start="0.2" data-track-index="3" muted playsinline></video>
+                    <video id="st-v-idle" class="clip" src="assets/island/idle.webm" data-start="0" data-duration="3.4" data-media-start="1.15" data-track-index="3" muted playsinline></video>
                   </div>
                   <video id="st-v-working" class="clip st-isl" src="assets/island/working.webm" data-start="7" data-duration="1.6" data-media-start="1.0" data-track-index="3" muted playsinline></video>
                   <video id="st-v-unfold" class="clip st-isl" src="assets/island/unfold.webm" data-start="8.6" data-duration="4.4" data-media-start="0" data-track-index="3" muted playsinline></video>
@@ -201,7 +201,7 @@
                   <video id="st-v-tray" class="clip st-isl" src="assets/island/tray.webm" data-start="23.5" data-duration="0.5" data-media-start="0.6" data-track-index="3" muted playsinline></video>
                   <video id="st-v-clipboard" class="clip st-isl" src="assets/island/clipboard.webm" data-start="24" data-duration="1" data-media-start="0.6" data-track-index="3" muted playsinline></video>
                   <video id="st-v-fold" class="clip st-isl" src="assets/island/fold.webm" data-start="25" data-duration="2.5" data-media-start="0" data-track-index="3" muted playsinline></video>
-                  <video id="st-v-idle2" class="clip st-isl" src="assets/island/idle2.webm" data-start="27.5" data-duration="2.5" data-media-start="1.5" data-track-index="3" muted playsinline></video>
+                  <video id="st-v-idle2" class="clip st-isl" src="assets/island/idle2.webm" data-start="27.5" data-duration="2.5" data-media-start="1.65" data-track-index="3" muted playsinline></video>
                 </div>
                 <div id="st-reflect"></div>
               </div>
@@ -261,7 +261,7 @@
       tl.set('#st-laptop', { rotationY: 0 }, 3);
       s0(3, 'TERM');
       tl.set('#st-dim', { opacity: 0 }, 3);
-      g(3, 2, 'TERM', 1.02, 'none');
+      g(3, 2, 'TERM', 1.02, 'sine.inOut');
       tl.set('#st-editor', { opacity: .45 }, 3);
       tl.set('#st-term-lines', { y: 0 }, 2.9);
       tl.to('#st-term-lines', { y: -150, duration: 2, ease: 'none' }, 3);
@@ -269,50 +269,50 @@
       tl.set('#st-term', { opacity: .55 }, 5);
       tl.set('#st-t1', { opacity: 0 }, 5);
       tl.set('#st-t2', { opacity: 1 }, 5);
-      g(5, 1, 'TERM', 1.04, 'none');
+      g(5, 1, 'TERM', 1.04, 'sine.inOut');
       tl.set('#st-notes', { opacity: 0 }, 6);
       tl.set('#st-term', { opacity: 1 }, 6);
       tl.set('#st-t2', { opacity: 0 }, 6);
       tl.set('#st-t3', { opacity: 1 }, 6);
       tl.set('#st-term-lines', { y: -230 }, 6);
       tl.to('#st-term-lines', { y: -300, duration: 1, ease: 'none' }, 6);
-      g(6, 1, 'TERM', 1.06, 'none');
+      g(6, 1, 'TERM', 1.06, 'sine.inOut');
       tl.set('#st-editor', { opacity: 1 }, 7);
 
       // 3. follow Claude live: full laptop, pill at true size, hover unfolds, dolly in, back out
       s0(7, 'FULL');
       tl.set('#st-dim', { opacity: .28 }, 7);
       tl.set('#st-term-lines', { y: -150 }, 7);
-      g(7, 2.9, 'FULL', 1.03, 'none');
+      g(7, 2.9, 'FULL', 1.03, 'sine.inOut');
       g(9.9, .6, 'PANEL');
-      g(10.5, 1.3, 'PANEL', 1.03, 'none');
+      g(10.5, 1.3, 'PANEL', 1.03, 'sine.inOut');
       g(11.8, .6, 'FULL');
 
       // 4. allow in one click
-      g(13, 2.2, 'FULL', 1.05, 'none');
+      g(13, 2.2, 'FULL', 1.05, 'sine.inOut');
       g(15.2, .6, 'CARD');
-      g(15.8, 1.8, 'CARD', 1.03, 'none');
+      g(15.8, 1.8, 'CARD', 1.03, 'sine.inOut');
       g(17.6, .5, 'FULL');
       g(18.4, .5, 'PILL');
-      g(18.9, .6, 'PILL', 1.03, 'none');
+      g(18.9, .6, 'PILL', 1.03, 'sine.inOut');
 
       // 5. montage: true size first, then short dolly-ins on each page
       s0(19.5, 'FULL');
-      g(19.5, 1.6, 'FULL', 1.03, 'none');
+      g(19.5, 1.6, 'FULL', 1.03, 'sine.inOut');
       g(21.1, .4, 'PANEL', .92, 'power3.out');
       const pages = [[21.5, .75, 1], [22.25, .75, .92], [23, .5, 1], [23.5, .5, .92], [24, 1, 1]];
-      for (const [at, d, m] of pages) { s0(at, 'PANEL', m); g(at, d, 'PANEL', m * 1.03, 'none'); }
+      for (const [at, d, m] of pages) { s0(at, 'PANEL', m); g(at, d, 'PANEL', m * 1.03, 'sine.inOut'); }
 
       // 6. call to action: 3/4 wide, orbit to frontal, then into the pill for the end mark
       s0(25, 'WIDE');
       tl.set('#st-laptop', { rotationY: -24 }, 25);
       turn(25, 2, 0);
       g(25, 2, 'FULL');
-      g(27, .6, 'FULL', 1.015, 'none');
+      g(27, .6, 'FULL', 1.015, 'sine.inOut');
       g(27.6, .6, 'END');
       tl.to('#st-sveil', { opacity: 1, duration: .5, ease: 'power2.inOut' }, 27.75);
       tl.to('#st-wveil', { opacity: 1, duration: .5, ease: 'power2.inOut' }, 27.75);
-      g(28.2, 1.8, 'END', 1.03, 'none');
+      g(28.2, 1.8, 'END', 1.03, 'sine.inOut');
 
       window.__timelines['stage'] = tl;
     })();
