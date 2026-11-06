@@ -30,7 +30,6 @@ fs.writeFileSync(page, fs.readFileSync(page, 'utf8').replace(/(<span data-versio
 fs.writeFileSync(path.join(OUT, '_headers'), [
   '/assets/*', '  Cache-Control: public, max-age=2592000, immutable',
   '/version.json', '  Cache-Control: no-cache',
-  '/star.js', '  Cache-Control: public, max-age=3600',
   '/blog/feed.xml', '  Content-Type: application/rss+xml; charset=utf-8',
   '/*', '  X-Content-Type-Options: nosniff', '  Referrer-Policy: strict-origin-when-cross-origin', '',
 ].join('\n'));

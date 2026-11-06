@@ -40,7 +40,7 @@ ink #171a2e, well #0f1222, paper #f2f0ff, mist #a9aecb, faint #6c7194, brand #8d
 - The site loads three.js, GSAP, Lenis and Google Fonts from CDNs; self-host them if the site must work offline.
 
 ## Open source, blog and deploys (added for the launch)
-- **Star on GitHub:** a ghost button (GitHub mark, "Star on GitHub", live count chip) in the nav, under the download buttons and in the footer. `star.js` makes one request to `api.github.com/repos/im-Amrith/Pulse`, caches `stargazers_count` in `localStorage` for an hour, and hides the chip if the request fails. It's a separate script from the 3D module, so it works even if a CDN is down. On phones the nav version shows only the mark and the count; the aria-label always carries the full count. No buttons.github.io iframe.
+- **Star on GitHub:** a ghost button (GitHub mark and "Star on GitHub") in the nav, under the download buttons and in the footer. No star count, so no request to the GitHub API. On phones the nav version shows only the mark; the aria-label carries the words. No buttons.github.io iframe.
 - **Open source:** "Free and open source · MIT" pill above the hero headline, and a "Built in the open" block (code, CONTRIBUTING, good first issues) between Privacy and Download.
 - **SEO:** title and description cover Windows and macOS; Open Graph and Twitter tags use `assets/og.jpg` (1200×630, made from the promo poster); canonical URL, `robots.txt`, `sitemap.xml`.
 - **Version text:** the static text says the current version (`<span data-version>`); `scripts/deploy.js` stamps it from `version.json` at build time, and the page script updates it again at runtime.

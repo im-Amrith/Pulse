@@ -35,8 +35,6 @@ header.nav { position: sticky; top: 18px; z-index: 60; margin: 18px auto 0; widt
 .btn-ghost { background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px var(--line); }
 .btn-ghost:hover { background: rgba(255,255,255,.08); }
 .star .gh { flex: none; }
-.star-count { min-width: 22px; height: 20px; margin-right: -6px; padding: 0 8px; border-radius: 999px; display: inline-grid; place-items: center;
-  font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--paper); background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px var(--line); }
 
 /* ---------- page ---------- */
 main { padding: clamp(56px, 10vh, 110px) var(--gutter) clamp(80px, 12vh, 140px); }
