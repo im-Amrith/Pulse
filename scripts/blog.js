@@ -43,6 +43,18 @@ const footer = `<footer>
   <span class="disclaimer">Pulse is an independent project and is not affiliated with or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic, PBC.</span>
 </footer>`;
 
+// BlogPosting structured data for search engines, kept between <!-- pulse:ld --> markers (added before </head> the first time)
+function postLd(html, p) {
+  const author = { '@type': 'Person', name: 'Amrithesh S Menon', url: 'https://github.com/im-Amrith' };
+  const ld = { '@context': 'https://schema.org', '@type': 'BlogPosting', headline: p.title, description: p.description,
+    datePublished: p.date, dateModified: p.date, url: p.url, mainEntityOfPage: p.url, image: p.image, inLanguage: 'en',
+    author, publisher: author, about: { '@type': 'SoftwareApplication', name: 'Pulse', url: `${SITE}/` } };
+  const block = `<!-- pulse:ld -->\n<script type="application/ld+json">\n${JSON.stringify(ld, null, 1)}\n</script>\n<!-- /pulse:ld -->`;
+  return html.includes('<!-- pulse:ld -->')
+    ? html.replace(/<!-- pulse:ld -->[\s\S]*?<!-- \/pulse:ld -->/, block)
+    : html.replace('</head>', `${block}\n</head>`);
+}
+
 const fill = (html, name, body) => {
   const re = new RegExp(`<!-- pulse:${name} -->[\\s\\S]*?<!-- /pulse:${name} -->`);
   if (!re.test(html)) throw new Error(`missing <!-- pulse:${name} --> ... <!-- /pulse:${name} --> markers`);
@@ -62,6 +74,7 @@ function readPosts() {
     const canonical = (html.match(/<link rel="canonical" href="([^"]*)"/) || [])[1];
     if (canonical !== url) throw new Error(`${slug}: <link rel="canonical"> must be ${url}`);
     html = fill(fill(html, 'nav', nav('blog')), 'footer', footer);
+    html = postLd(html, { title, description, date, url, image: meta(html, 'og:image') || `${SITE}/assets/og.jpg` });
     fs.writeFileSync(file, html);
     posts.push({ slug, title, description, date, url, draft: meta(html, 'pulse:draft') === 'true' });
   }

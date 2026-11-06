@@ -15,6 +15,13 @@
     <description>Claude Code HTTP hooks, a PermissionRequest held open until you answer, a per-install token checked with timingSafeEqual, the Stop hook reply trick, and exactly what Connect changes in settings.json.</description>
   </item>
   <item>
+    <title>How to get notified when Claude Code finishes or needs permission (Windows and Mac)</title>
+    <link>https://pulse-bot.dev/blog/claude-code-notifications/</link>
+    <guid isPermaLink="true">https://pulse-bot.dev/blog/claude-code-notifications/</guid>
+    <pubDate>Mon, 09 Nov 2026 09:00:00 GMT</pubDate>
+    <description>Claude Code stops and waits when it needs permission or finishes a task. Here’s how to get a sound or desktop notification on Windows and macOS, with the built-in setting, Notification and Stop hooks, and copy-paste settings.json examples.</description>
+  </item>
+  <item>
     <title>Cutting an Electron app’s memory from 530 MB to 315 MB with a 12 KB native helper</title>
     <link>https://pulse-bot.dev/blog/electron-memory-530-to-315/</link>
     <guid isPermaLink="true">https://pulse-bot.dev/blog/electron-memory-530-to-315/</guid>

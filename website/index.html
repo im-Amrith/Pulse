@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pulse: a living island for Claude Code on Windows and macOS</title>
-<meta name="description" content="Pulse sits at the top of your screen, follows Claude Code as it works, lets you Allow or Deny in one click, and keeps music, timers and notes one hover away. Free and open source for Windows and macOS.">
+<title>Pulse: a Dynamic Island for Claude Code on Windows and Mac</title>
+<meta name="description" content="Pulse is a free, open-source Dynamic Island for Windows and Mac that follows Claude Code live: see what it’s doing, get told when it finishes, and Allow or Deny permission prompts in one click. Free and open source.">
 <link rel="canonical" href="https://pulse-bot.dev/">
 <link rel="alternate" type="application/rss+xml" title="Pulse blog" href="https://pulse-bot.dev/blog/feed.xml">
 <meta property="og:type" content="website">
@@ -21,6 +21,77 @@
 <meta name="twitter:description" content="A living island at the top of your screen that follows Claude Code live and lets you Allow in one click. Free and open source for Windows and macOS.">
 <meta name="twitter:image" content="https://pulse-bot.dev/assets/og.jpg">
 <meta name="theme-color" content="#090b16">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@graph": [
+  {
+   "@type": "WebSite",
+   "@id": "https://pulse-bot.dev/#website",
+   "url": "https://pulse-bot.dev/",
+   "name": "Pulse",
+   "alternateName": [
+    "pulse-bot.dev",
+    "Pulse for Claude Code"
+   ],
+   "publisher": {
+    "@id": "https://pulse-bot.dev/#author"
+   }
+  },
+  {
+   "@type": "Person",
+   "@id": "https://pulse-bot.dev/#author",
+   "name": "Amrithesh S Menon",
+   "url": "https://github.com/im-Amrith",
+   "sameAs": [
+    "https://github.com/im-Amrith"
+   ]
+  },
+  {
+   "@type": "SoftwareApplication",
+   "@id": "https://pulse-bot.dev/#app",
+   "name": "Pulse",
+   "alternateName": "Pulse for Claude Code",
+   "description": "Pulse is a free, open-source Dynamic Island for Windows and Mac that follows Claude Code live: see what it’s doing, get told when it finishes, and Allow or Deny permission prompts in one click. Plus music, timers and notes one hover away.",
+   "applicationCategory": "DeveloperApplication",
+   "applicationSubCategory": "Claude Code companion",
+   "operatingSystem": "Windows 10, Windows 11, macOS 12 or later",
+   "softwareVersion": "0.2.2",
+   "url": "https://pulse-bot.dev/",
+   "downloadUrl": "https://github.com/im-Amrith/Pulse-releases/releases/latest",
+   "installUrl": "https://pulse-bot.dev/#download",
+   "isAccessibleForFree": true,
+   "license": "https://opensource.org/licenses/MIT",
+   "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+   },
+   "image": "https://pulse-bot.dev/assets/og.jpg",
+   "screenshot": [
+    "https://pulse-bot.dev/assets/shots/permission.png",
+    "https://pulse-bot.dev/assets/shots/claude-working.png",
+    "https://pulse-bot.dev/assets/shots/home.png"
+   ],
+   "featureList": [
+    "Follows Claude Code live: the current step, a diff of the edit, command output",
+    "Allow or Deny Claude Code permission prompts in one click",
+    "Tells you when Claude Code finishes or fails",
+    "5-hour usage limit with a countdown to the reset",
+    "Now playing with synced lyrics",
+    "Focus timers, reminders, notes, launcher, file tray and clipboard history"
+   ],
+   "author": {
+    "@id": "https://pulse-bot.dev/#author"
+   },
+   "codeRepository": "https://github.com/im-Amrith/Pulse",
+   "sameAs": [
+    "https://github.com/im-Amrith/Pulse"
+   ]
+  }
+ ]
+}
+</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='20' width='56' height='24' rx='12' fill='%23171a2e'/%3E%3Cellipse cx='26' cy='32' rx='3.4' ry='5' fill='%23e9ebff'/%3E%3Cellipse cx='38' cy='32' rx='3.4' ry='5' fill='%23e9ebff'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -312,7 +383,7 @@ footer .star { height: 38px; padding: 0 16px; font-size: 14px; }
     <div class="hero-copy">
       <a class="oss" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener"><svg class="gh" width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span><b>Free and open source</b> · MIT</span></a>
       <h1 id="hero-title"><span class="line"><span>Your desk,</span></span><span class="line"><span class="soft">with a pulse.</span></span></h1>
-      <p class="lede">A small living island at the top of your screen. It follows Claude Code as it works, asks before anything important, and keeps your music, timers and reminders one hover away.</p>
+      <p class="lede">Pulse is a Dynamic Island for Windows and Mac: a small living island at the top of your screen. It follows Claude Code as it works, asks before anything important, and keeps your music, timers and reminders one hover away.</p>
       <!-- both systems; the visitor's own one is moved first and made primary by the script below -->
       <div class="hero-actions">
         <a class="btn btn-primary" id="hero-win" href="https://github.com/im-Amrith/Pulse-releases/releases/latest/download/Pulse-win-x64.zip"><svg class="os" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5.5 10.5 4.4v7.1H3zm8.5-1.2L21 3v8.5h-9.5zM3 12.5h7.5v7.1L3 18.5zm8.5 0H21V21l-9.5-1.3z"/></svg>Download for Windows</a>

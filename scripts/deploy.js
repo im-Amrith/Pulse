@@ -25,12 +25,17 @@ fs.cpSync(SRC, OUT, { recursive: true, filter: src => !SKIP.has(path.basename(sr
 // the version in the page's static text comes from version.json, so it's right even before the script runs
 const version = JSON.parse(fs.readFileSync(path.join(SRC, 'version.json'), 'utf8')).version;
 const page = path.join(OUT, 'index.html');
-fs.writeFileSync(page, fs.readFileSync(page, 'utf8').replace(/(<span data-version>)[^<]*(<\/span>)/g, `$1${version}$2`));
+fs.writeFileSync(page, fs.readFileSync(page, 'utf8')
+  .replace(/(<span data-version>)[^<]*(<\/span>)/g, `$1${version}$2`)
+  .replace(/("softwareVersion": ?")[^"]*(")/, `$1${version}$2`)); // structured data for search engines
 // long cache for media, always-fresh version.json so new releases show up at once
 fs.writeFileSync(path.join(OUT, '_headers'), [
   '/assets/*', '  Cache-Control: public, max-age=2592000, immutable',
   '/version.json', '  Cache-Control: no-cache',
   '/blog/feed.xml', '  Content-Type: application/rss+xml; charset=utf-8',
+  // keep the pulse-a5j.pages.dev copies out of search results; pulse-bot.dev is the one to rank
+  'https://:project.pages.dev/*', '  X-Robots-Tag: noindex',
+  'https://:version.:project.pages.dev/*', '  X-Robots-Tag: noindex',
   '/*', '  X-Content-Type-Options: nosniff', '  Referrer-Policy: strict-origin-when-cross-origin', '',
 ].join('\n'));
 

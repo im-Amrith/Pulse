@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to get notified when Claude Code finishes or needs permission (Windows and Mac) · Pulse blog</title>
+<meta name="description" content="Claude Code stops and waits when it needs permission or finishes a task. Here’s how to get a sound or desktop notification on Windows and macOS, with the built-in setting, Notification and Stop hooks, and copy-paste settings.json examples.">
+<meta name="pulse:date" content="2026-11-09">
+<link rel="canonical" href="https://pulse-bot.dev/blog/claude-code-notifications/">
+<link rel="alternate" type="application/rss+xml" title="Pulse blog" href="https://pulse-bot.dev/blog/feed.xml">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Pulse">
+<meta property="og:title" content="How to get notified when Claude Code finishes or needs permission">
+<meta property="og:description" content="The built-in setting, Notification and Stop hooks, and copy-paste examples for Windows and macOS.">
+<meta property="og:url" content="https://pulse-bot.dev/blog/claude-code-notifications/">
+<meta property="og:image" content="https://pulse-bot.dev/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-09">
+<meta property="article:author" content="Amrithesh S Menon">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#090b16">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='20' width='56' height='24' rx='12' fill='%23171a2e'/%3E%3Cellipse cx='26' cy='32' rx='3.4' ry='5' fill='%23e9ebff'/%3E%3Cellipse cx='38' cy='32' rx='3.4' ry='5' fill='%23e9ebff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/blog/blog.css">
+<!-- pulse:ld -->
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "BlogPosting",
+ "headline": "How to get notified when Claude Code finishes or needs permission (Windows and Mac)",
+ "description": "Claude Code stops and waits when it needs permission or finishes a task. Here’s how to get a sound or desktop notification on Windows and macOS, with the built-in setting, Notification and Stop hooks, and copy-paste settings.json examples.",
+ "datePublished": "2026-11-09",
+ "dateModified": "2026-11-09",
+ "url": "https://pulse-bot.dev/blog/claude-code-notifications/",
+ "mainEntityOfPage": "https://pulse-bot.dev/blog/claude-code-notifications/",
+ "image": "https://pulse-bot.dev/assets/og.jpg",
+ "inLanguage": "en",
+ "author": {
+  "@type": "Person",
+  "name": "Amrithesh S Menon",
+  "url": "https://github.com/im-Amrith"
+ },
+ "publisher": {
+  "@type": "Person",
+  "name": "Amrithesh S Menon",
+  "url": "https://github.com/im-Amrith"
+ },
+ "about": {
+  "@type": "SoftwareApplication",
+  "name": "Pulse",
+  "url": "https://pulse-bot.dev/"
+ }
+}
+</script>
+<!-- /pulse:ld -->
+</head>
+<body>
+<!-- pulse:nav -->
+<header class="nav">
+  <a class="logo" href="/" aria-label="Pulse home"><span class="mark" aria-hidden="true"><i></i><i></i></span>Pulse</a>
+  <nav class="nav-links" aria-label="Primary">
+    <a href="/#features">Features</a>
+    <a href="/#privacy">Privacy</a>
+    <a href="/blog/" aria-current="page">Blog</a>
+  </nav>
+  <a class="btn btn-primary" href="/#download">Download</a>
+  <a class="btn btn-ghost star" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener" aria-label="Star Pulse on GitHub (opens in a new tab)"><svg class="gh" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span class="star-label">Star on GitHub</span></a>
+</header>
+<!-- /pulse:nav -->
+<main>
+  <div class="wrap">
+    <a class="kicker" href="/blog/" style="text-decoration:none">← Blog</a>
+    <h1>Get notified when Claude Code finishes or needs permission.</h1>
+    <p class="lede">Claude Code stops and waits when it wants to run a command or has finished the job. If you’ve switched to another window, you don’t find out. Here’s how to get a sound or a desktop notification on Windows and macOS.</p>
+    <div class="meta"><span>Amrithesh S Menon</span><time datetime="2026-11-09">9 November 2026</time><span>6 min read</span></div>
+    <article class="post">
+      <p>There are three ways, from least to most setup: a built-in setting, a hook that runs a command, or an app that watches Claude Code for you. All three are free.</p>
+
+      <h2>1. The built-in setting: preferredNotifChannel</h2>
+      <p>Claude Code has one setting for this, <code>preferredNotifChannel</code>. It decides how Claude Code tells you that a task finished or a permission prompt is waiting. You can change it in a session with <code>/config</code> (it’s listed as <strong>Local notifications</strong>), or in <code>~/.claude/settings.json</code>:</p>
+<pre><code>{
+  "preferredNotifChannel": "terminal_bell"
+}</code></pre>
+      <p>The values:</p>
+      <ul>
+        <li><code>auto</code> (the default): a desktop notification in iTerm2, Ghostty and Kitty; a bell in macOS Terminal only when its audible bell is turned off; nothing in other terminals.</li>
+        <li><code>terminal_bell</code>: rings the bell in any terminal.</li>
+        <li><code>iterm2</code>, <code>iterm2_with_bell</code>, <code>kitty</code>, <code>ghostty</code>: that terminal’s own desktop notification.</li>
+        <li><code>notifications_disabled</code>: nothing.</li>
+      </ul>
+      <p>The catch is in the default: <strong>most terminals get nothing</strong>. That includes Windows Terminal, the VS Code terminal and Warp. On those, <code>terminal_bell</code> is the easy fix, as long as your terminal’s bell makes a sound. If you want a real notification that shows up wherever you are, use a hook.</p>
+
+      <h2>2. Hooks: run your own command</h2>
+      <p>Hooks are commands Claude Code runs at fixed moments. Two of them matter here:</p>
+      <ul>
+        <li><strong><code>Notification</code></strong> runs when Claude Code sends a notification. Its <code>notification_type</code> says why: <code>permission_prompt</code> when a tool is waiting for your approval, and <code>idle_prompt</code> about 60 seconds after Claude finished responding, if you haven’t typed since.</li>
+        <li><strong><code>Stop</code></strong> runs every time Claude finishes responding.</li>
+      </ul>
+      <p>Claude Code passes the event to your command as JSON on standard input. For a permission prompt it looks like this:</p>
+<pre><code>{
+  "hook_event_name": "Notification",
+  "message": "Claude needs your permission to use Bash",
+  "notification_type": "permission_prompt",
+  "session_id": "…",
+  "cwd": "…"
+}</code></pre>
+      <p>Hooks live in <code>~/.claude/settings.json</code> (for all your projects) or <code>.claude/settings.json</code> in one project. The file is strict JSON: no comments, no trailing commas. If you already have a <code>hooks</code> section, add these events to it instead of making a second one.</p>
+
+      <h3>macOS</h3>
+      <p>macOS can show a notification from the command line with <code>osascript</code>. This alerts you when Claude needs permission, and when it’s done:</p>
+<pre><code>{
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "hooks": [{ "type": "command", "command": "osascript -e 'display notification \"Claude needs your permission\" with title \"Claude Code\" sound name \"Glass\"'" }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "osascript -e 'display notification \"Done\" with title \"Claude Code\"'" }]
+      }
+    ]
+  }
+}</code></pre>
+      <p>Prefer just a sound? Use <code>afplay /System/Library/Sounds/Glass.aiff</code> as the command. If no notification appears, check <strong>System Settings → Notifications</strong>: notifications from <code>osascript</code> show up under Script Editor, and they need to be allowed there.</p>
+
+      <h3>Windows</h3>
+      <p>On Windows, a few lines of PowerShell can show a notification. Save this as <code>notify.ps1</code> in your <code>.claude</code> folder (<code>C:\Users\you\.claude\notify.ps1</code>). It shows Claude’s own message when there is one:</p>
+<pre><code># Shows a Windows notification for Claude Code. Claude Code passes the event as JSON on stdin.
+$e = [Console]::In.ReadToEnd() | ConvertFrom-Json
+$text = if ($e.message) { $e.message } else { 'Claude Code is done' }
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+$n = New-Object System.Windows.Forms.NotifyIcon
+$n.Icon = [System.Drawing.SystemIcons]::Information
+$n.Visible = $true
+$n.ShowBalloonTip(5000, 'Claude Code', $text, 'Info')
+Start-Sleep -Seconds 6
+$n.Dispose()</code></pre>
+      <p>Then point both hooks at it. Put in your own user name, keep the forward slashes, and keep the <code>\"</code> quotes around the path: they matter if your user name has a space in it.</p>
+<pre><code>{
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "hooks": [{ "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/you/.claude/notify.ps1\"" }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/you/.claude/notify.ps1\"" }]
+      }
+    ]
+  }
+}</code></pre>
+      <p>To test it before Claude does, run this in PowerShell. A notification should appear in the corner of your screen:</p>
+<pre><code>'{"message":"Test from Claude Code"}' | powershell -NoProfile -ExecutionPolicy Bypass -File "$HOME/.claude/notify.ps1"</code></pre>
+      <p>Nothing appears? Turn off <strong>Do not disturb</strong> (Focus Assist on Windows 10), and check that notifications are on in <strong>Settings → System → Notifications</strong>.</p>
+
+      <h3>Things that trip people up</h3>
+      <ul>
+        <li><strong>Start a new session</strong> after editing <code>settings.json</code>, so Claude Code picks up the hooks.</li>
+        <li><strong><code>Stop</code> fires after every reply</strong>, including short ones. If that’s too much, use the <code>Notification</code> hook with <code>idle_prompt</code> instead: it only fires once Claude has been waiting on you for about a minute.</li>
+        <li><strong>tmux</strong> swallows terminal notifications unless <code>set -g allow-passthrough on</code> is in <code>~/.tmux.conf</code>. Hooks aren’t affected, because they don’t go through the terminal.</li>
+      </ul>
+
+      <h2>3. Or let an app watch Claude Code for you</h2>
+      <p>A notification tells you <em>that</em> Claude needs you. You still have to switch back to the terminal to see <em>what</em> it wants and answer it. That round trip is why I built <a href="/">Pulse</a>.</p>
+      <figure>
+        <img src="/assets/shots/permission.png" alt="Pulse open at the top of the screen, asking whether to allow a terminal command, with Allow and Deny buttons" width="692" loading="lazy">
+        <figcaption>A permission request in Pulse: the command, and Allow or Deny, without leaving the window you’re in.</figcaption>
+      </figure>
+      <p>Pulse is a small island at the top of your screen, on Windows and Mac. Under the hood it uses the same hooks as above, sent to an address on your own computer, so nothing leaves your machine. On top of the alert, it:</p>
+      <ul>
+        <li>shows what Claude is doing right now (reading a file, editing, running a command), with a diff of the edit</li>
+        <li>shows the permission request itself, with <strong>Allow</strong> and <strong>Deny</strong> buttons, so you can answer from wherever you are</li>
+        <li>smiles when the job is done, and shows your 5-hour usage with a countdown to the reset</li>
+      </ul>
+      <p>It’s free and open source (MIT), with no account. Choose <strong>Connect</strong> in the island and it adds its hooks to your <code>settings.json</code>, next to any you already have; <strong>Disconnect</strong> removes only its own. If you’re curious how it holds a permission request until you answer, I wrote that up in <a href="/blog/claude-code-hooks-allow-button/">How Pulse sits between Claude Code and your Allow button</a>.</p>
+
+      <h2>Which one should you use?</h2>
+      <ul>
+        <li><strong>You use iTerm2, Ghostty or Kitty:</strong> you already get notifications with the default setting.</li>
+        <li><strong>You want a beep and nothing else:</strong> set <code>preferredNotifChannel</code> to <code>terminal_bell</code>.</li>
+        <li><strong>You want a desktop notification on any terminal:</strong> the hooks above.</li>
+        <li><strong>You want to see and answer what Claude is asking without switching windows:</strong> <a href="/#download">Pulse</a>.</li>
+      </ul>
+      <p>The settings and hook details here come from Anthropic’s Claude Code docs: <a href="https://code.claude.com/docs/en/settings-reference.md#preferrednotifchannel" rel="noopener">settings reference</a>, <a href="https://code.claude.com/docs/en/hooks.md#notification" rel="noopener">hooks reference</a> and <a href="https://code.claude.com/docs/en/terminal-config.md#get-a-terminal-bell-or-notification" rel="noopener">terminal configuration</a>.</p>
+    </article>
+    <aside class="post-end">
+      <p>Pulse is free and open source for Windows and macOS. It’s an independent project for Claude Code, not affiliated with or endorsed by Anthropic.</p>
+      <div class="row"><a class="btn btn-primary" href="/#download">Download Pulse</a><a class="btn btn-ghost" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener">Read the code on GitHub</a></div>
+    </aside>
+  </div>
+</main>
+<!-- pulse:footer -->
+<footer>
+  <div class="foot-row"><span>Pulse for Windows and macOS. Free and open source (MIT). Made by Amrithesh S Menon.</span><a class="btn btn-ghost star" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener" aria-label="Star Pulse on GitHub (opens in a new tab)"><svg class="gh" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span class="star-label">Star on GitHub</span></a></div>
+  <nav class="foot-links" aria-label="More"><a href="/blog/">Blog</a><a href="/blog/feed.xml">RSS</a><a href="/terms">Terms of use</a><a href="https://github.com/im-Amrith/Pulse">Source code</a><a href="https://github.com/im-Amrith/Pulse-releases/releases">Release notes</a></nav>
+  <span class="disclaimer">Pulse is an independent project and is not affiliated with or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic, PBC.</span>
+</footer>
+<!-- /pulse:footer -->
+</body>
+</html>
