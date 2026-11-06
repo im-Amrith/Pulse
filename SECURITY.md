@@ -16,4 +16,9 @@ Include what an attacker could do, the steps to reproduce it, and the Pulse vers
 - Phone transfer (`src/main/phone.js`) and anything reachable from the local network
 - The renderer: script injection through file names, song titles, lyrics, clipboard contents or Claude output
 
+## Out of scope
+
+- Windows SmartScreen and macOS Gatekeeper warnings: the builds aren't code-signed yet (see the README FAQ). Every release lists its SHA-256, and release builds are made on GitHub Actions, so you can check that a download matches.
+- What Claude Code itself does after you choose **Allow**.
+
 Only the latest release gets security fixes.

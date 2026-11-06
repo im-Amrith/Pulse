@@ -2,6 +2,10 @@
 
 Thanks for helping. Bug reports, ideas and pull requests are all welcome.
 
+New here? Issues labelled [`good first issue`](https://github.com/im-Amrith/Pulse/labels/good%20first%20issue) are small and well-scoped, and [`help wanted`](https://github.com/im-Amrith/Pulse/labels/help%20wanted) ones are bigger pieces I'd love a hand with. Comment on an issue before you start, so two people don't build the same thing.
+
+Everyone taking part is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Reporting a bug
 
 Open an [issue](https://github.com/im-Amrith/Pulse/issues/new/choose) and include:
@@ -13,8 +17,10 @@ Please remove anything personal from screenshots (file paths, song titles, promp
 
 ## Running from source
 
+You need [Node.js](https://nodejs.org) **22** LTS. On Node 26, Electron's installer currently stops without unpacking Electron, so `npm start` can't find it.
+
 ```bash
-npm install
+npm ci
 npm start      # runs Pulse from the source folder
 npm test       # hub, settings and feature tests
 ```
@@ -23,12 +29,18 @@ On Windows, `npm run helper` builds the optional native media helper. Without it
 
 ## Pull requests
 
+The [pull request template](.github/pull_request_template.md) has a short checklist. In short:
+
 - Keep each PR to one change, and say what it does and how you tested it (Windows, macOS or both).
 - Run `npm test` before you push. Add a test in `test/` when you change `hub.js`, `claude-config.js` or other main-process logic.
 - Match the surrounding style: plain CommonJS, no build step, no new framework. New npm dependencies need a good reason, since every one ships to every user.
 - UI changes: include a before/after screenshot, and check both the folded pill and the unfolded panel.
 - Anything that touches `~/.claude/settings.json` must keep Disconnect removing only Pulse's own entries.
 - Privacy: Pulse must not send data anywhere new without the user turning it on. If your change adds a network call, call it out in the PR.
+
+## Releases
+
+Only the maintainer makes releases. Pushing a `v*` tag runs `.github/workflows/windows.yml` and `mac.yml`, which build the Windows zip and the Mac `.dmg` on GitHub's machines and upload them as workflow artifacts. They're checked by hand, then published to [Pulse-releases](https://github.com/im-Amrith/Pulse-releases/releases). Notable changes go in [CHANGELOG.md](CHANGELOG.md) under **Unreleased**.
 
 ## Project layout
 
