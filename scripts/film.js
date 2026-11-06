@@ -13,6 +13,7 @@ const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'website', 'assets');
 const RAW = path.join(os.tmpdir(), 'pulse-film-frames');
 const W = 1440, H = 810, FPS = 30, SCALE = 0.8; // island frames come at 2x: 1440x1120, shown at 0.8
+const PROMO_FPS = 60, ISLAND_W = 1440, ISLAND_H = 1120; // promo clips: 60 fps, the 720x560 island window at 2x
 
 function record(dir = RAW, script = '') {
   console.log('Recording the island (about a minute)...');
@@ -21,12 +22,12 @@ function record(dir = RAW, script = '') {
 }
 
 // Streams the recorded frames between two times to ffmpeg at a steady FPS (holding a frame until the next one was painted).
-async function pipeFrames(dir, frames, from, to, ff) {
+async function pipeFrames(dir, frames, from, to, ff, fps = FPS) {
   const fw = frames[0].w, fh = frames[0].h;
   const write = buf => new Promise(r => (ff.stdin.write(buf) ? r() : ff.stdin.once('drain', r)));
   let k = 0, cache = { file: '', buf: null };
-  for (let i = 0; from + i * 1000 / FPS < to; i++) {
-    const t = from + i * 1000 / FPS;
+  for (let i = 0; from + i * 1000 / fps < to; i++) {
+    const t = from + i * 1000 / fps;
     while (k + 1 < frames.length && frames[k + 1].t <= t) k++;
     const f = frames[k];
     if (cache.file !== f.file) {
@@ -54,10 +55,12 @@ async function promoClips() {
     const { name, t } = marks[i], to = marks[i + 1].t;
     const file = path.join(out, `${name}.webm`);
     console.log(`  ${name}: ${((to - t) / 1000).toFixed(2)} s`);
-    const ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgra', '-s', `${fw}x${fh}`, '-r', String(FPS), '-i', '-',
+    // 60 fps, and always the full 720x560 island window at 2x (pad if the offscreen surface came out shorter)
+    const ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgra', '-s', `${fw}x${fh}`, '-r', String(PROMO_FPS), '-i', '-',
+      '-vf', `pad=${ISLAND_W}:${ISLAND_H}:0:0:color=0x00000000`,
       '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-b:v', '0', '-crf', '20', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '2',
-      '-auto-alt-ref', '0', '-an', file], { stdio: ['pipe', 'inherit', 'inherit'] });
-    await pipeFrames(dir, frames, t, to, ff);
+      '-auto-alt-ref', '0', '-threads', '4', '-an', file], { stdio: ['pipe', 'inherit', 'inherit'] });
+    await pipeFrames(dir, frames, t, to, ff, PROMO_FPS);
     scenes[name] = +((to - t) / 1000).toFixed(3);
     // contact sheet: the middle of each scene over a mid-grey, so the shape and any text are easy to read
     const png = path.join(dir, `sheet-${name}.png`);

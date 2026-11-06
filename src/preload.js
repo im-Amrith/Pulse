@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('pulse', {
   onStats: on('stats'),
   onReminder: on('reminder'),
   onDownload: on('download'),
+  onNotice: on('notice'),
   interactive: v => call('island:interactive', Boolean(v)),
   focus: () => call('island:focus'),
 

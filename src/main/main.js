@@ -91,7 +91,8 @@ function createWindow() {
     alwaysOnTop: true, hasShadow: false, show: false, backgroundColor: '#00000000', roundedCorners: false,
     // macOS: a non-activating panel floats over full-screen apps without stealing focus from them
     ...(IS_MAC ? { type: 'panel', enableLargerThanScreen: true, fullscreenable: false } : {}),
-    webPreferences: { preload: path.join(__dirname, '..', 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false },
+    webPreferences: { preload: path.join(__dirname, '..', 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, spellcheck: false,
+      ...(FILM ? { offscreen: true, backgroundThrottling: false } : {}) }, // film mode records at 60 fps (see film.js)
   });
   place();
   win.setAlwaysOnTop(true, 'screen-saver');
@@ -150,17 +151,30 @@ function state() {
     media: media.state, volume: media.volume, lyrics: lyrics.current, system: sys.state, clipboard: clips.items,
     prefs: prefs.get(), history: history.list(), phone: phone.status(), askBusy: ask.busy(),
     startWithWindows: app.getLoginItemSettings().openAtLogin,
-    appInfo: { version: app.getVersion(), update: updates.state },
+    appInfo: { version: app.getVersion(), update: updates.state, notificationsBlocked },
   };
 }
 let pushTimer = null;
 const push = () => { if (pushTimer) return; pushTimer = setTimeout(() => { pushTimer = null; send('state', state()); }, 40); };
 
-function notify(title, body) {
-  if (prefs.get().notifications === false || !Notification.isSupported() || win?.isFocused()) return;
-  const n = new Notification({ title, body: body || '', icon: nativeImage.createFromBuffer(iconPng(64)), silent: true });
-  n.on('click', () => send('island:open', 'claude'));
+// Since Electron 42, macOS refuses notifications from apps that aren't signed with a Developer ID, and the
+// notification emits 'failed' instead of showing. Then `fallback` puts the message in the island, and Settings
+// says why. (Claude's state and fired reminders already stay in the pill, so they need no fallback.)
+let notificationsBlocked = false;
+function showNotification(options, onClick, fallback) {
+  if (!Notification.isSupported()) { fallback?.(); return; }
+  const n = new Notification({ icon: nativeImage.createFromBuffer(iconPng(64)), ...options });
+  n.on('click', onClick);
+  n.on('failed', (_e, error) => {
+    if (!notificationsBlocked) { notificationsBlocked = true; console.warn('Notifications are unavailable:', error); push(); }
+    fallback?.();
+  });
   n.show();
+}
+
+function notify(title, body) {
+  if (prefs.get().notifications === false || win?.isFocused()) return;
+  showNotification({ title, body: body || '', silent: true }, () => send('island:open', 'claude'));
 }
 
 async function captureScreen() {
@@ -188,11 +202,7 @@ function checkReminders() {
     if (r.done || r.fired || !(r.at <= now)) continue;
     r.fired = true; changed = true;
     send('reminder', r.id);
-    if (Notification.isSupported()) {
-      const n = new Notification({ title: 'Reminder', body: r.text, icon: nativeImage.createFromBuffer(iconPng(64)) });
-      n.on('click', () => send('island:open', 'plan'));
-      n.show();
-    }
+    showNotification({ title: 'Reminder', body: r.text }, () => send('island:open', 'plan'));
   }
   if (changed) { prefs.set({ ...prefs.get(), reminders: list }); push(); }
 }
@@ -328,9 +338,10 @@ app.whenReady().then(async () => {
   updates = new Updates(app.getVersion());
   updates.on('change', () => {
     push();
-    if (updates.state.available && Notification.isSupported()) {
-      const n = new Notification({ title: `Pulse ${updates.state.latest} is available`, body: 'Click to download the update.', icon: nativeImage.createFromBuffer(iconPng(64)) });
-      n.on('click', () => shell.openExternal(updates.state.url)); n.show();
+    if (updates.state.available) {
+      showNotification({ title: `Pulse ${updates.state.latest} is available`, body: 'Click to download the update.' },
+        () => shell.openExternal(updates.state.url),
+        () => send('notice', { icon: 'download', text: `Pulse ${updates.state.latest} is available`, tag: 'Settings' }));
     }
   });
   ask = createAsk({ dir: path.join(dir, 'ask') });

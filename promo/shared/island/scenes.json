@@ -1,16 +1,16 @@
 {
  "idle": 6.015,
- "working": 4.814,
- "unfold": 6.669,
+ "working": 4.82,
+ "unfold": 6.714,
  "ask": 7.383,
- "done": 4.505,
- "lyrics": 5.568,
- "music": 4.683,
- "time": 4.493,
- "plan": 2.83,
- "launcher": 2.826,
- "tray": 2.808,
- "clipboard": 2.813,
- "fold": 2.527,
- "idle2": 6.014
+ "done": 4.502,
+ "lyrics": 5.563,
+ "music": 4.635,
+ "time": 4.484,
+ "plan": 2.815,
+ "launcher": 2.804,
+ "tray": 2.814,
+ "clipboard": 2.814,
+ "fold": 2.514,
+ "idle2": 6.003
 }
