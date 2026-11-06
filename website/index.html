@@ -3,8 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pulse: a living island for your Windows desktop</title>
-<meta name="description" content="Pulse sits at the top of your screen, follows Claude Code as it works, asks before anything important, and keeps music, timers, reminders and your favourite apps one hover away. Free for Windows 10 and 11.">
+<title>Pulse: a living island for Claude Code on Windows and macOS</title>
+<meta name="description" content="Pulse sits at the top of your screen, follows Claude Code as it works, lets you Allow or Deny in one click, and keeps music, timers and notes one hover away. Free and open source for Windows and macOS.">
+<link rel="canonical" href="https://pulse-bot.dev/">
+<link rel="alternate" type="application/rss+xml" title="Pulse blog" href="https://pulse-bot.dev/blog/feed.xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pulse">
+<meta property="og:title" content="Pulse: your desk, with a pulse">
+<meta property="og:description" content="A living island at the top of your screen that follows Claude Code live and lets you Allow in one click. Free and open source for Windows and macOS.">
+<meta property="og:url" content="https://pulse-bot.dev/">
+<meta property="og:image" content="https://pulse-bot.dev/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pulse: your desk, with a pulse. Open source for Windows and macOS.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Pulse: your desk, with a pulse">
+<meta name="twitter:description" content="A living island at the top of your screen that follows Claude Code live and lets you Allow in one click. Free and open source for Windows and macOS.">
+<meta name="twitter:image" content="https://pulse-bot.dev/assets/og.jpg">
 <meta name="theme-color" content="#090b16">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='20' width='56' height='24' rx='12' fill='%23171a2e'/%3E%3Cellipse cx='26' cy='32' rx='3.4' ry='5' fill='%23e9ebff'/%3E%3Cellipse cx='38' cy='32' rx='3.4' ry='5' fill='%23e9ebff'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -76,6 +91,18 @@ header.nav { position: fixed; top: 18px; left: 50%; translate: -50% 0; z-index: 
 .btn-ghost { background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px var(--line); backdrop-filter: blur(12px); }
 .btn-ghost:hover { background: rgba(255,255,255,.08); }
 .nav .btn { height: 38px; padding: 0 16px; font-size: 14px; }
+/* Star on GitHub: a ghost button with a live star count (filled in by the small script at the end) */
+.star { gap: 9px; }
+.star .gh { flex: none; }
+.star-count { min-width: 22px; height: 22px; margin-right: -8px; padding: 0 8px; border-radius: 999px; display: inline-grid; place-items: center;
+  font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--paper); background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px var(--line); }
+.nav .star { padding: 0 14px; }
+.nav .star .star-count { height: 20px; margin-right: -6px; }
+.oss { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 22px; padding: 6px 14px 6px 8px; border-radius: 999px; font-size: 13px; color: var(--mist);
+  background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px var(--line); transition: color .25s, background .25s; }
+.oss:hover { color: var(--paper); background: rgba(255,255,255,.08); }
+.oss .gh { width: 15px; height: 15px; }
+.oss b { color: var(--paper); font-weight: 500; }
 
 /* ---------- hero ---------- */
 .hero { min-height: 100vh; min-height: 100svh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; padding: 120px var(--gutter) 80px; }
@@ -194,6 +221,7 @@ html.js .reveal.in { opacity: 1; transform: none; }
 .download h2 { font: 600 clamp(56px, 8vw, 132px)/.88 var(--display); letter-spacing: -.02em; }
 .download .lede { margin: 22px auto 0; max-width: 30rem; color: var(--mist); font-size: 18px; }
 .download .actions { margin-top: 36px; display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
+.download .star-row { margin-top: 14px; display: flex; justify-content: center; }
 .os-switch { margin: 46px auto 0; display: inline-flex; padding: 4px; border-radius: 999px; background: rgba(15, 18, 34, .62); box-shadow: inset 0 0 0 1px var(--line); backdrop-filter: blur(16px); }
 .os-switch button { padding: 8px 18px; border-radius: 999px; font-size: 14px; color: var(--mist); }
 .os-switch button[aria-selected="true"] { background: var(--paper); color: #0e1022; }
@@ -210,10 +238,19 @@ html.js .reveal.in { opacity: 1; transform: none; }
 .note b { color: var(--mist); font-weight: 500; }
 
 footer { padding: 36px var(--gutter) 44px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; font-size: 13px; color: var(--faint); border-top: 1px solid var(--line); }
-.foot-links { display: flex; gap: 20px; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.foot-links a { white-space: nowrap; }
 .foot-links a, .dl-meta a { color: var(--mist); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line); }
 .foot-links a:hover, .dl-meta a:hover { color: var(--paper); }
 footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
+footer .star { height: 38px; padding: 0 16px; font-size: 14px; }
+.foot-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
+
+/* ---------- built in the open ---------- */
+.open .facts { margin-top: 0; }
+.open .fact a { display: block; color: inherit; }
+.open .fact a:hover b { color: var(--accent); }
+.open .fact b { transition: color .25s; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 960px) {
@@ -238,6 +275,10 @@ footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
 }
 @media (max-width: 560px) {
   header.nav { left: 16px; right: 16px; translate: none; justify-content: space-between; }
+  /* phones: the nav star keeps the GitHub mark and the count; the words go to the screen reader label */
+  .nav .star .star-label { display: none; }
+  .nav .star { padding: 0 12px; }
+  .nav .btn-primary { padding: 0 14px; margin-left: auto; }
   .hero-actions .btn { width: 100%; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -262,14 +303,17 @@ footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
     <a href="#features">Features</a>
     <a href="#colours">Colours</a>
     <a href="#privacy">Privacy</a>
+    <a href="blog/">Blog</a>
   </nav>
   <a class="btn btn-primary" href="#download">Download</a>
+  <a class="btn btn-ghost star" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener" aria-label="Star Pulse on GitHub (opens in a new tab)"><svg class="gh" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span class="star-label">Star on GitHub</span><span class="star-count" hidden></span></a>
 </header>
 
 <main id="top">
   <!-- 1. hero: copy left, the 3D capsule floats on the right (rendered in #gl) -->
   <section class="hero" aria-labelledby="hero-title">
     <div class="hero-copy">
+      <a class="oss" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener"><svg class="gh" width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span><b>Free and open source</b> · MIT</span></a>
       <h1 id="hero-title"><span class="line"><span>Your desk,</span></span><span class="line"><span class="soft">with a pulse.</span></span></h1>
       <p class="lede">A small living island at the top of your screen. It follows Claude Code as it works, asks before anything important, and keeps your music, timers and reminders one hover away.</p>
       <!-- both systems; the visitor's own one is moved first and made primary by the script below -->
@@ -278,7 +322,7 @@ footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
         <a class="btn btn-ghost" id="hero-mac" href="https://github.com/im-Amrith/Pulse-releases/releases/latest/download/Pulse-mac-universal.dmg"><svg class="os" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.3 1.2 9.7.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8s1.9.8 3.2.7c1.3 0 2.1-1.2 2.9-2.4.9-1.3 1.3-2.6 1.3-2.7-.1 0-2.4-.9-2.4-3.8zM14 5.5c.7-.8 1.1-1.9 1-3-.9 0-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.5 2.8-1.3z"/></svg>Download for Mac</a>
       </div>
       <a class="see-it" href="#demo">See it in action <span aria-hidden="true">↓</span></a>
-      <div class="hero-meta"><span>Free</span><span>Windows and Mac</span><span>No account</span></div>
+      <div class="hero-meta"><span>Free</span><span>Windows and Mac</span><span>No account</span><span>Open source</span></div>
     </div>
     <img class="hero-fallback" src="assets/shots/pill-working.png" alt="The Pulse capsule at the top of the screen, showing Claude Code at work">
     <div class="scroll-cue" aria-hidden="true">Scroll<i></i></div>
@@ -396,6 +440,19 @@ footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
     </div>
   </section>
 
+  <!-- 5b. built in the open -->
+  <section class="block open" id="open-source" aria-labelledby="open-title">
+    <div class="head reveal">
+      <h2 id="open-title">Built in the open.</h2>
+      <p>Pulse is free and MIT-licensed. Every line that touches Claude Code is on GitHub to read, and the release builds are made on GitHub’s machines. Ideas, bug reports and pull requests are welcome.</p>
+    </div>
+    <div class="facts">
+      <div class="fact reveal"><a href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener"><b>Read the code →</b><span>Plain JavaScript and Electron, no build step. Start with the hook server in <code>src/main/hub.js</code>.</span></a></div>
+      <div class="fact reveal"><a href="https://github.com/im-Amrith/Pulse/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener"><b>Contribute →</b><span>How to run Pulse from source, test it, and send a pull request.</span></a></div>
+      <div class="fact reveal"><a href="https://github.com/im-Amrith/Pulse/labels/good%20first%20issue" target="_blank" rel="noopener"><b>Good first issues →</b><span>Small, well-scoped starter tasks, from more colour themes to keyboard support.</span></a></div>
+    </div>
+  </section>
+
   <!-- 6. download -->
   <section class="download" id="download" aria-labelledby="download-title">
     <video src="assets/doorway.mp4" muted loop playsinline preload="metadata" aria-hidden="true"></video>
@@ -407,7 +464,8 @@ footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
         <a class="btn btn-primary" id="dl-btn" data-os="win" href="https://github.com/im-Amrith/Pulse-releases/releases/latest/download/Pulse-win-x64.zip">Download for Windows <span class="chip" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v13M6 12l6 6 6-6"/></svg></span></a>
         <a class="btn btn-ghost" id="dl-mac" data-os="mac" href="#" hidden>Download for Mac <span class="chip" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v13M6 12l6 6 6-6"/></svg></span></a>
       </div>
-      <p class="dl-meta reveal" id="dl-meta">Version 0.1.0, 64-bit zip</p>
+      <div class="star-row reveal"><a class="btn btn-ghost star" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener" aria-label="Star Pulse on GitHub (opens in a new tab)"><svg class="gh" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span class="star-label">Star on GitHub</span><span class="star-count" hidden></span></a></div>
+      <p class="dl-meta reveal" id="dl-meta">Version <span data-version>0.2.2</span>. Windows: 64-bit zip. Mac: universal .dmg.</p>
       <p class="dl-meta reveal">By downloading Pulse you agree to the <a href="terms.html">Terms of Use and Licence</a>. Pulse is provided as is, without warranty.</p>
       <div class="os-switch reveal" role="tablist" aria-label="Install steps for" hidden>
         <button role="tab" data-show="win" aria-selected="true">Windows</button><button role="tab" data-show="mac" aria-selected="false">Mac</button>
@@ -429,11 +487,12 @@ footer .disclaimer { flex-basis: 100%; max-width: 70ch; }
 </main>
 
 <footer>
-  <span><span id="foot-version">Pulse 0.1.0</span> for Windows. Made by Amrithesh S Menon.</span>
-  <nav class="foot-links" aria-label="Legal"><a href="terms.html">Terms of use</a><a href="https://github.com/im-Amrith/Pulse">Source code</a><a href="terms.html#licence">Licence</a><a href="https://github.com/im-Amrith/Pulse-releases/releases">Release notes</a></nav>
+  <div class="foot-row"><span><span id="foot-version">Pulse <span data-version>0.2.2</span></span> for Windows and macOS. Free and open source (MIT). Made by Amrithesh S Menon.</span><a class="btn btn-ghost star" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener" aria-label="Star Pulse on GitHub (opens in a new tab)"><svg class="gh" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span class="star-label">Star on GitHub</span><span class="star-count" hidden></span></a></div>
+  <nav class="foot-links" aria-label="More"><a href="blog/">Blog</a><a href="terms.html">Terms of use</a><a href="https://github.com/im-Amrith/Pulse">Source code</a><a href="terms.html#licence">Licence</a><a href="https://github.com/im-Amrith/Pulse-releases/releases">Release notes</a></nav>
   <span class="disclaimer">Pulse is an independent project and is not affiliated with or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic, PBC. Background footage from the MotionSites media shelf.</span>
 </footer>
 
+<script src="star.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
@@ -760,7 +819,7 @@ const intro = gsap.timeline({ defaults: { ease: 'expo.out' } });
 if (!reduce) {
   intro.from('header.nav', { y: -30, opacity: 0, duration: 1.1 }, 0.1)
     .from('.hero h1 .line > span', { yPercent: 110, duration: 1.3, stagger: 0.12 }, 0.25)
-    .from('.hero .lede, .hero-actions, .hero-meta', { y: 24, opacity: 0, filter: 'blur(8px)', duration: 1.1, stagger: 0.1 }, 0.55)
+    .from('.hero .oss, .hero .lede, .hero-actions, .hero-meta', { y: 24, opacity: 0, filter: 'blur(8px)', duration: 1.1, stagger: 0.1 }, 0.55)
     .to(prog, { intro: 1, duration: 2.2, ease: 'expo.out' }, 0.2)
     .from('.scroll-cue', { opacity: 0, duration: 1 }, 1.3);
 }
@@ -911,7 +970,7 @@ function showSteps(os) {
 document.querySelectorAll('.os-switch button').forEach(b => b.addEventListener('click', () => showSteps(b.dataset.show)));
 fetch('version.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).then(v => {
   if (!v?.version) return;
-  $id('foot-version').textContent = `Pulse ${v.version}`;
+  document.querySelectorAll('[data-version]').forEach(el => { el.textContent = v.version; });
   if (v.download) $id('dl-btn').href = v.download;
   if (v.download) $id('hero-win').href = v.download;
   const win = `Windows: 64-bit zip, ${v.sizeMB} MB`;

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why your Mac says 99% RAM (and how Activity Monitor really counts it) · Pulse blog</title>
+<meta name="description" content="os.freemem() on macOS leaves out file cache, so a healthy Mac looks full. Here’s how Activity Monitor counts Memory Used, and how to get the same number from vm_stat.">
+<meta name="pulse:date" content="2026-11-09">
+<link rel="canonical" href="https://pulse-bot.dev/blog/mac-99-percent-ram/">
+<link rel="alternate" type="application/rss+xml" title="Pulse blog" href="https://pulse-bot.dev/blog/feed.xml">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Pulse">
+<meta property="og:title" content="Why your Mac says 99% RAM (and how Activity Monitor really counts it)">
+<meta property="og:description" content="os.freemem() on macOS leaves out file cache, so a healthy Mac looks full. Here’s how Activity Monitor counts Memory Used, and how to get the same number from vm_stat.">
+<meta property="og:url" content="https://pulse-bot.dev/blog/mac-99-percent-ram/">
+<meta property="og:image" content="https://pulse-bot.dev/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-09">
+<meta property="article:author" content="Amrithesh S Menon">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#090b16">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='20' width='56' height='24' rx='12' fill='%23171a2e'/%3E%3Cellipse cx='26' cy='32' rx='3.4' ry='5' fill='%23e9ebff'/%3E%3Cellipse cx='38' cy='32' rx='3.4' ry='5' fill='%23e9ebff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/blog/blog.css">
+<script src="/star.js" defer></script>
+</head>
+<body>
+<!-- pulse:nav -->
+<header class="nav">
+  <a class="logo" href="/" aria-label="Pulse home"><span class="mark" aria-hidden="true"><i></i><i></i></span>Pulse</a>
+  <nav class="nav-links" aria-label="Primary">
+    <a href="/#features">Features</a>
+    <a href="/#privacy">Privacy</a>
+    <a href="/blog/" aria-current="page">Blog</a>
+  </nav>
+  <a class="btn btn-primary" href="/#download">Download</a>
+  <a class="btn btn-ghost star" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener" aria-label="Star Pulse on GitHub (opens in a new tab)"><svg class="gh" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span class="star-label">Star on GitHub</span><span class="star-count" hidden></span></a>
+</header>
+<!-- /pulse:nav -->
+<main>
+  <div class="wrap">
+    <a class="kicker" href="/blog/" style="text-decoration:none">← Blog</a>
+    <h1>Why your Mac says 99% RAM.</h1>
+    <p class="lede">Pulse 0.2.2 fixed a RAM readout that showed about 99% on every Mac. The Mac was fine; the maths was wrong. Here’s how Activity Monitor really counts memory, and how to read the same number from vm_stat.</p>
+    <div class="meta"><span>Amrithesh S Menon</span><time datetime="2026-11-09">9 November 2026</time><span>5 min read</span></div>
+    <article class="post">
+      <p>Pulse’s panel has a small <code>CPU 11%  RAM 41%</code> readout in its header. Soon after the Mac version came out, the RAM figure on Macs showed about <strong>99%</strong>, all the time, on machines with plenty of memory to spare. The Mac was fine. My maths was wrong. Version 0.2.2 fixed it, and the fix is a nice small lesson in how macOS uses memory.</p>
+
+      <figure>
+        <img src="/assets/shots/claude-working.png" alt="The open Pulse panel; the header at the top right shows CPU and RAM percentages next to the clock" width="692" loading="lazy">
+        <figcaption>The CPU and RAM readout sits in the header, next to the clock.</figcaption>
+      </figure>
+
+      <h2>The one-liner that worked on Windows</h2>
+      <p>The first version used the formula you’d write without thinking:</p>
+<pre><code>const ram = Math.round((1 - os.freemem() / os.totalmem()) * 100);</code></pre>
+      <p>On Windows, the free memory Node reports is the memory that’s <em>available</em>, which includes the standby cache Windows can hand back at once. So the formula came out close to Task Manager’s figure, and nobody noticed anything.</p>
+      <p>On a Mac, <code>os.freemem()</code> means something much narrower: pages that hold nothing at all. And a healthy Mac has very few of those.</p>
+
+      <h2>macOS doesn’t like free memory</h2>
+      <p>macOS treats empty RAM as wasted RAM. When you read a file, the system keeps its contents in memory after you’re done (“cached files”), in case you need them again. That memory isn’t in use the way an app’s memory is. The system can drop it the moment something needs the space. But it isn’t <em>free</em> either, so <code>os.freemem()</code> doesn’t count it.</p>
+      <p>After a few hours of normal use, almost all spare memory is file cache, free pages fall to a sliver, and <code>1 - free / total</code> heads for 100%. My header was reporting that the Mac had done its job.</p>
+
+      <h2>What Activity Monitor counts</h2>
+      <p>Open Activity Monitor’s Memory tab and look at the bottom. <strong>Memory Used</strong> is split into three parts:</p>
+      <ul>
+        <li><strong>App Memory:</strong> memory that apps have asked for and are using</li>
+        <li><strong>Wired Memory:</strong> memory the system has locked in place and can’t compress or move out</li>
+        <li><strong>Compressed:</strong> memory that macOS has squeezed to make room, instead of writing it to disk</li>
+      </ul>
+      <p><strong>Cached Files</strong> is listed separately, and isn’t part of Memory Used. So that’s the number to match: App + Wired + Compressed.</p>
+
+      <h2>Reading it from vm_stat</h2>
+      <p>Every Mac has <code>/usr/bin/vm_stat</code>, which prints the kernel’s page counts. Here’s the output Pulse’s test uses, the shape of a 16 GB Apple Silicon Mac after a busy day:</p>
+<pre><code>Mach Virtual Memory Statistics: (page size of 16384 bytes)
+Pages free:                                9000.
+Pages active:                            300000.
+Pages inactive:                          290000.
+Pages speculative:                         5000.
+Pages wired down:                        150000.
+Pages purgeable:                          10000.
+Anonymous pages:                         280000.
+File-backed pages:                       330000.
+Pages occupied by compressor:             60000.</code></pre>
+      <p>The page size is on the first line, and it matters: it’s 16 KB on Apple Silicon and 4 KB on Intel Macs. Hard-code 4096 and an Apple Silicon Mac comes out four times too low.</p>
+      <p>The rows map onto Activity Monitor like this:</p>
+      <ul>
+        <li><strong>Wired</strong> is <code>Pages wired down</code>.</li>
+        <li><strong>Compressed</strong> is <code>Pages occupied by compressor</code>: the space the compressed data takes up.</li>
+        <li><strong>App Memory</strong> is close to <code>Anonymous pages</code> (memory not backed by a file, which is what apps allocate) minus <code>Pages purgeable</code> (memory apps have marked as safe for the system to throw away).</li>
+        <li><strong>Cached Files</strong> are the <code>File-backed pages</code>. We leave them out.</li>
+      </ul>
+      <p>A word of honesty: Apple doesn’t publish Activity Monitor’s exact formula. “Anonymous minus purgeable” for App Memory is a widely used approximation that tracks Activity Monitor closely, not an official definition. For a percentage in a header, close is what I need.</p>
+
+      <h2>The code</h2>
+      <p>Here’s the whole parser from <code>src/main/system.js</code>:</p>
+<pre><code>function parseVmStat(out, total = os.totalmem()) {
+  const text = String(out);
+  const page = Number((text.match(/page size of (\d+) bytes/) || [])[1]) || 4096;
+  const n = name =&gt; {
+    const m = text.match(new RegExp(`^${name}:\\s+(\\d+)`, 'mi'));
+    return m ? Number(m[1]) : null;
+  };
+  const wired = n('Pages wired down'), compressed = n('Pages occupied by compressor');
+  const anon = n('Anonymous pages'), active = n('Pages active');
+  if (wired == null || !total) return null;
+  const app = anon != null ? Math.max(0, anon - (n('Pages purgeable') || 0)) : (active || 0);
+  return Math.round(Math.max(0, Math.min(100,
+    ((app + wired + (compressed || 0)) * page / total) * 100)));
+}</code></pre>
+      <p>A few choices worth pointing out:</p>
+      <ul>
+        <li>It reads the page size instead of assuming one.</li>
+        <li>If a future macOS stops printing <code>Anonymous pages</code>, it falls back to <code>Pages active</code>, a rougher figure but in the right ballpark.</li>
+        <li>If the output doesn’t look like <code>vm_stat</code> at all, it returns <code>null</code>, and Pulse falls back to the old formula instead of showing nonsense.</li>
+        <li>The result is clamped to 0–100, because a percentage outside that range is always a bug.</li>
+      </ul>
+
+      <h2>The numbers from the test</h2>
+      <p>Run both formulas on that sample, on a 16 GB Mac:</p>
+      <table>
+        <thead><tr><th></th><th>Pages</th><th>Size</th><th>Shown</th></tr></thead>
+        <tbody>
+          <tr><td>Old: <code>1 − free / total</code></td><td>9,000 free</td><td>≈ 141 MB free</td><td><strong>99%</strong></td></tr>
+          <tr><td>New: app + wired + compressed</td><td>270,000 + 150,000 + 60,000</td><td>≈ 7.3 GB used</td><td><strong>46%</strong></td></tr>
+          <tr><td>Cached files (left out)</td><td>330,000</td><td>≈ 5.0 GB</td><td>n/a</td></tr>
+        </tbody>
+      </table>
+      <p>Same sample, two formulas: 99% versus 46%. The difference is nearly all file cache, memory the Mac is using well and would give up immediately. The test in <code>test/features.test.js</code> checks exactly this case, and that garbage input gives <code>null</code>:</p>
+<pre><code>assert.equal(parseVmStat(vm, total), 46); // (280000 - 10000 + 150000 + 60000) pages of 16 KB
+assert.equal(parseVmStat('garbage', total), null);</code></pre>
+
+      <p>On a real Mac it looks the same. A friend’s Mac that showed 99% on Pulse 0.2.1 shows <strong>51%</strong> on 0.2.2.</p>
+
+      <h2>How often to ask</h2>
+      <p>Pulse samples CPU every 2 seconds, from <code>os.cpus()</code>, which is cheap. Running <code>vm_stat</code> means starting a process, so Pulse does it every third tick, every 6 seconds, with a 3-second timeout. That’s plenty for a percentage in a header:</p>
+<pre><code>const readVm = () =&gt; execFile('/usr/bin/vm_stat', { timeout: 3000 },
+  (err, out) =&gt; { if (!err) macRam = parseVmStat(out); });
+// ...
+if (mac &amp;&amp; ++tick % 3 === 0) readVm(); // every 6 s is plenty for a percentage</code></pre>
+      <p>The full path, <code>/usr/bin/vm_stat</code>, means nothing on your <code>PATH</code> can stand in for it.</p>
+
+      <h2>The takeaway</h2>
+      <p>“Free memory” means different things on different systems. On a Mac, low free memory is normal and healthy. If you want a number that matches what people see in Activity Monitor, count what’s actually in use, App + Wired + Compressed, and leave the cache out. And if what you really want to know is “is this Mac short of memory?”, the better signal is Activity Monitor’s <strong>Memory Pressure</strong> graph, not any percentage.</p>
+      <p>The fix shipped in <a href="https://github.com/im-Amrith/Pulse-releases/releases/tag/v0.2.2">Pulse 0.2.2</a>. The code is in <a href="https://github.com/im-Amrith/Pulse/blob/main/src/main/system.js"><code>src/main/system.js</code></a>.</p>
+    </article>
+    <aside class="post-end">
+      <p>Pulse is free and open source for Windows and macOS. It’s an independent project for Claude Code, not affiliated with or endorsed by Anthropic.</p>
+      <div class="row"><a class="btn btn-primary" href="/#download">Download Pulse</a><a class="btn btn-ghost" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener">Read the code on GitHub</a></div>
+    </aside>
+  </div>
+</main>
+<!-- pulse:footer -->
+<footer>
+  <div class="foot-row"><span>Pulse for Windows and macOS. Free and open source (MIT). Made by Amrithesh S Menon.</span><a class="btn btn-ghost star" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener" aria-label="Star Pulse on GitHub (opens in a new tab)"><svg class="gh" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span class="star-label">Star on GitHub</span><span class="star-count" hidden></span></a></div>
+  <nav class="foot-links" aria-label="More"><a href="/blog/">Blog</a><a href="/blog/feed.xml">RSS</a><a href="/terms">Terms of use</a><a href="https://github.com/im-Amrith/Pulse">Source code</a><a href="https://github.com/im-Amrith/Pulse-releases/releases">Release notes</a></nav>
+  <span class="disclaimer">Pulse is an independent project and is not affiliated with or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic, PBC.</span>
+</footer>
+<!-- /pulse:footer -->
+</body>
+</html>

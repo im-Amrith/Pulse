@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Pulse sits between Claude Code and your Allow button · Pulse blog</title>
+<meta name="description" content="Claude Code HTTP hooks, a PermissionRequest held open until you answer, a per-install token checked with timingSafeEqual, the Stop hook reply trick, and exactly what Connect changes in settings.json.">
+<meta name="pulse:date" content="2026-11-09">
+<link rel="canonical" href="https://pulse-bot.dev/blog/claude-code-hooks-allow-button/">
+<link rel="alternate" type="application/rss+xml" title="Pulse blog" href="https://pulse-bot.dev/blog/feed.xml">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Pulse">
+<meta property="og:title" content="How Pulse sits between Claude Code and your Allow button">
+<meta property="og:description" content="Claude Code HTTP hooks, a PermissionRequest held open until you answer, a per-install token checked with timingSafeEqual, the Stop hook reply trick, and exactly what Connect changes in settings.json.">
+<meta property="og:url" content="https://pulse-bot.dev/blog/claude-code-hooks-allow-button/">
+<meta property="og:image" content="https://pulse-bot.dev/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="article:published_time" content="2026-11-09">
+<meta property="article:author" content="Amrithesh S Menon">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#090b16">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='20' width='56' height='24' rx='12' fill='%23171a2e'/%3E%3Cellipse cx='26' cy='32' rx='3.4' ry='5' fill='%23e9ebff'/%3E%3Cellipse cx='38' cy='32' rx='3.4' ry='5' fill='%23e9ebff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/blog/blog.css">
+<script src="/star.js" defer></script>
+</head>
+<body>
+<!-- pulse:nav -->
+<header class="nav">
+  <a class="logo" href="/" aria-label="Pulse home"><span class="mark" aria-hidden="true"><i></i><i></i></span>Pulse</a>
+  <nav class="nav-links" aria-label="Primary">
+    <a href="/#features">Features</a>
+    <a href="/#privacy">Privacy</a>
+    <a href="/blog/" aria-current="page">Blog</a>
+  </nav>
+  <a class="btn btn-primary" href="/#download">Download</a>
+  <a class="btn btn-ghost star" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener" aria-label="Star Pulse on GitHub (opens in a new tab)"><svg class="gh" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span class="star-label">Star on GitHub</span><span class="star-count" hidden></span></a>
+</header>
+<!-- /pulse:nav -->
+<main>
+  <div class="wrap">
+    <a class="kicker" href="/blog/" style="text-decoration:none">← Blog</a>
+    <h1>Between Claude Code and your Allow button.</h1>
+    <p class="lede">Pulse shows Claude Code’s permission requests in a small island and sends your answer back. Here’s how it works: HTTP hooks, a held-open request, a token, and one trick with the Stop hook.</p>
+    <div class="meta"><span>Amrithesh S Menon</span><time datetime="2026-11-09">9 November 2026</time><span>6 min read</span></div>
+    <article class="post">
+      <p>When Claude Code wants to run a command, it stops and asks. If you’re in another window, you find out minutes later that nothing happened. Pulse fixes that: the request appears in a small island at the top of your screen, with <strong>Allow</strong> and <strong>Deny</strong>, and your answer goes straight back to Claude Code.</p>
+      <p>There’s no plugin API or screen scraping involved. It’s Claude Code’s own <a href="https://code.claude.com/docs/en/hooks">hooks</a>, a small HTTP server on <code>127.0.0.1</code>, and one trick with the <code>Stop</code> hook. This post walks through all of it, including exactly what Pulse writes to your settings.</p>
+
+      <figure>
+        <img src="/assets/shots/permission.png" alt="The Pulse island asking whether to allow a terminal command, with Allow and Deny buttons" width="692" loading="lazy">
+        <figcaption>A permission request in the island. The project and command are made up for the demo.</figcaption>
+      </figure>
+
+      <h2>Hooks, over HTTP</h2>
+      <p>Claude Code runs <a href="https://code.claude.com/docs/en/hooks">hooks</a> at points in its lifecycle: a session starts, you submit a prompt, a tool is about to run, a tool finished, Claude stopped. A hook is usually a shell command, but it can also be an <strong>HTTP hook</strong>: Claude Code POSTs the event’s JSON to a URL and reads the response.</p>
+      <p>That’s perfect for a desktop app that’s already running. No script has to start for every event, and the app gets the events as they happen. When you click <strong>Connect</strong>, Pulse adds an HTTP hook for ten events to <code>~/.claude/settings.json</code>. Each looks like this (the token is different on every install):</p>
+<pre><code>"PreToolUse": [{
+  "hooks": [{
+    "type": "http",
+    "url": "http://127.0.0.1:47900/pulse/hook",
+    "timeout": 3,
+    "headers": { "X-Pulse-Token": "3f9c…" }
+  }]
+}]</code></pre>
+      <p>The ten events are <code>SessionStart</code>, <code>UserPromptSubmit</code>, <code>PreToolUse</code>, <code>PostToolUse</code>, <code>PostToolUseFailure</code>, <code>PermissionRequest</code>, <code>Notification</code>, <code>Stop</code>, <code>StopFailure</code> and <code>SessionEnd</code>. From those, Pulse’s hub (<code>src/main/hub.js</code>) keeps a small model of each session: the prompt, the steps (“Reading nav.css”, “Running npm test”), a short diff of the last edit, the tail of the last command’s output, and whether Claude is working, asking, done or failed.</p>
+      <p>Most hooks get a 3-second timeout. If Pulse isn’t running, the connection fails, and the docs treat that as a non-blocking error, so Claude Code carries on as if Pulse weren’t there. Quitting Pulse never stalls your session.</p>
+
+      <h2>Holding a PermissionRequest open</h2>
+      <p>The interesting event is <code>PermissionRequest</code>. It fires when Claude Code is about to ask you whether it may use a tool, and the hook can answer for you. The answer goes in the response body:</p>
+<pre><code>{
+  "hookSpecificOutput": {
+    "hookEventName": "PermissionRequest",
+    "decision": { "behavior": "allow", "updatedInput": { "command": "npm test" } }
+  }
+}</code></pre>
+      <p>Most hooks answer straight away. Pulse doesn’t. It <strong>keeps the HTTP response open</strong> until you click something in the island:</p>
+<pre><code>case 'PermissionRequest': {
+  // ...work out what's being asked, show it in the island...
+  if (res) {
+    const timer = setTimeout(() =&gt; { this.#release(id); }, PERMISSION_TIMEOUT_S * 1000);
+    this.holds.set(id, { res, timer });
+    held = true;          // don't send a response yet
+  }
+  this.emit('attention', s);
+  break;
+}</code></pre>
+      <p>When you click <strong>Allow</strong>, Pulse finishes the response with an <code>allow</code> decision. <strong>Deny</strong> sends <code>{ "behavior": "deny", "message": "Denied from Pulse." }</code>, which Claude sees as the reason. Claude Code is just waiting on an HTTP request, so it carries on as soon as the response arrives.</p>
+      <p>Three details make this safe to live with:</p>
+      <ul>
+        <li><strong>A time limit.</strong> Pulse gives up after 5 minutes and sends an <em>empty</em> 200 response. An empty response means “no decision”, so Claude Code falls back to its normal prompt in the terminal. The hook’s own timeout in <code>settings.json</code> is 310 seconds, a little longer, so Pulse always answers first.</li>
+        <li><strong>You can still answer in the terminal.</strong> If you answer there instead, the next event for that session (a <code>PostToolUse</code>, say) tells Pulse the question is settled, and it releases the held request.</li>
+        <li><strong>Exit code 2 doesn’t work here.</strong> The docs say exit code 2 isn’t honoured for <code>PermissionRequest</code>; you deny through the <code>decision</code> object. Pulse only ever answers with JSON.</li>
+      </ul>
+
+      <h3>Questions and plans use the same door</h3>
+      <p>When Claude asks a multiple-choice question (<code>AskUserQuestion</code>) or presents a plan (<code>ExitPlanMode</code>), that also arrives as a <code>PermissionRequest</code>. Pulse shows the options or the plan in the island. Your choice goes back in <code>updatedInput</code>, with the answers added next to the original questions:</p>
+<pre><code>this.#settle(id, {
+  behavior: 'allow',
+  updatedInput: { ...p.input, answers: { 'Which framework?': 'React' } },
+}, 'Answer sent');</code></pre>
+      <p>Rejecting a plan is a <code>deny</code> whose message carries your feedback: “The user wants changes to the plan: …”. Claude reads that and revises.</p>
+
+      <h2>The token, and why timingSafeEqual</h2>
+      <p>A server on <code>127.0.0.1:47900</code> is only reachable from your own computer, but that still includes every program you run, and in some cases web pages too. A server that can approve shell commands needs to know who’s talking.</p>
+      <p>On first launch, Pulse makes a random token (24 bytes, as hex) and saves it in its own data folder, readable only by you on macOS. The same token goes into the hook headers in <code>settings.json</code>. Every request has to carry it, or it gets a bare <code>403</code>:</p>
+<pre><code>#authorized(req) {
+  const given = Buffer.from(String(req.headers['x-pulse-token'] || ''));
+  return given.length === this.token.length &amp;&amp; timingSafeEqual(given, this.token);
+}
+
+#onRequest(req, res) {
+  const route = String(req.url).split('?')[0];
+  if (req.method !== 'POST' || !Object.values(ROUTES).includes(route) || !this.#authorized(req)) {
+    req.resume(); res.writeHead(403).end(); return;
+  }
+  // ...
+}</code></pre>
+      <p><code>crypto.timingSafeEqual</code> compares the whole buffer in constant time, so how long a wrong guess takes doesn’t reveal how many characters were right. Over loopback that’s a small risk, but it costs one line. Only <code>POST</code> is accepted, and a web page can’t set a custom <code>X-Pulse-Token</code> header on a cross-origin request without a CORS preflight, which Pulse never answers. Bodies are capped at 1 MB.</p>
+      <p>The token is stored in plain text in <code>settings.json</code>. Anything that can read your home folder can read it, and anything that can do that already has bigger powers than approving one command.</p>
+
+      <h2>The Stop hook reply trick</h2>
+      <p>Sometimes Claude finishes by asking you something in plain text: “Want me to add tests for this too?” There’s no permission request to answer. The turn is over. I wanted to answer that from the island as well.</p>
+      <p>Command hooks have an option for this: <code>asyncRewake</code>. In the docs’ words, it “runs in the background and wakes Claude on exit code 2”, and the hook’s stderr “is shown to Claude as a system reminder”. So Connect adds one more <code>Stop</code> hook, a tiny script:</p>
+<pre><code>{ "type": "command", "command": "node \"…/pulse-reply.js\" 3f9c…", "asyncRewake": true, "timeout": 1810 }</code></pre>
+      <p><code>pulse-reply.js</code> reads the session ID from stdin, then makes a long-polling request to Pulse and waits. If you type a reply in the island, Pulse answers that request, and the script turns your reply into a wake-up:</p>
+<pre><code>res.on('end', () =&gt; {
+  let reply = '';
+  try { reply = String(JSON.parse(out).reply || '').trim(); } catch {}
+  if (!reply) process.exit(0);                  // nothing to say: Claude stays stopped
+  process.stderr.write('The user replied from the Pulse island: ' + reply + '\n');
+  process.exit(2);                              // wake Claude with the reply
+});</code></pre>
+      <p>If you type in the terminal instead, the next <code>UserPromptSubmit</code> makes Pulse answer the waiting script with an empty reply, so it exits quietly. After 30 minutes it gives up on its own.</p>
+
+      <h2>What Connect and Disconnect change</h2>
+      <p>Everything above lives in one file, <code>~/.claude/settings.json</code>. Before touching it, Pulse copies it to <code>settings.json.pulse-backup</code>, and it writes through a temporary file and a rename, so a crash can’t leave half a file. If the file isn’t valid JSON, Pulse changes nothing and tells you. <strong>Connect</strong> adds:</p>
+      <ul>
+        <li>the ten HTTP hooks above, all pointing at <code>127.0.0.1:47900</code> with your token</li>
+        <li>the background <code>Stop</code> command hook (<code>pulse-reply.js</code>)</li>
+        <li>a status line (<code>pulse-status.js</code>) that prints model, 5-hour and 7-day usage and context in the terminal and forwards them to the island, but <strong>only if you don’t already have a status line</strong></li>
+      </ul>
+      <p><strong>Disconnect</strong> removes exactly those entries and nothing else. A hook counts as Pulse’s if its URL starts with Pulse’s hook address or its command runs <code>pulse-reply.js</code>. Your own hooks and your own status line stay as they are. There’s a test for that in <code>test/hub.test.js</code>, because it’s the promise I most need to keep.</p>
+      <p>Connect and Disconnect are in <a href="https://github.com/im-Amrith/Pulse/blob/main/src/main/claude-config.js"><code>src/main/claude-config.js</code></a>, about a hundred lines, and the hub is in <a href="https://github.com/im-Amrith/Pulse/blob/main/src/main/hub.js"><code>src/main/hub.js</code></a>. If you find a way to answer a request without the token, please <a href="https://github.com/im-Amrith/Pulse/security/advisories/new">report it privately</a>.</p>
+      <p><em>Pulse is an independent project for Claude Code. It isn’t affiliated with or endorsed by Anthropic.</em></p>
+    </article>
+    <aside class="post-end">
+      <p>Pulse is free and open source for Windows and macOS. It’s an independent project for Claude Code, not affiliated with or endorsed by Anthropic.</p>
+      <div class="row"><a class="btn btn-primary" href="/#download">Download Pulse</a><a class="btn btn-ghost" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener">Read the code on GitHub</a></div>
+    </aside>
+  </div>
+</main>
+<!-- pulse:footer -->
+<footer>
+  <div class="foot-row"><span>Pulse for Windows and macOS. Free and open source (MIT). Made by Amrithesh S Menon.</span><a class="btn btn-ghost star" href="https://github.com/im-Amrith/Pulse" target="_blank" rel="noopener" aria-label="Star Pulse on GitHub (opens in a new tab)"><svg class="gh" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg><span class="star-label">Star on GitHub</span><span class="star-count" hidden></span></a></div>
+  <nav class="foot-links" aria-label="More"><a href="/blog/">Blog</a><a href="/blog/feed.xml">RSS</a><a href="/terms">Terms of use</a><a href="https://github.com/im-Amrith/Pulse">Source code</a><a href="https://github.com/im-Amrith/Pulse-releases/releases">Release notes</a></nav>
+  <span class="disclaimer">Pulse is an independent project and is not affiliated with or endorsed by Anthropic. Claude and Claude Code are trademarks of Anthropic, PBC.</span>
+</footer>
+<!-- /pulse:footer -->
+</body>
+</html>
