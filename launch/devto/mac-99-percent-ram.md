@@ -109,12 +109,14 @@ Run both formulas on that sample, on a 16 GB Mac:
 | New: app + wired + compressed | 270,000 + 150,000 + 60,000 | ≈ 7.3 GB used | **46%** |
 | Cached files (left out)       | 330,000                    | ≈ 5.0 GB      | n/a     |
 
-Same machine, same moment: 99% versus 46%. The difference is nearly all file cache, memory the Mac is using well and would give up immediately. The test in `test/features.test.js` checks exactly this case, and that garbage input gives `null`:
+Same sample, two formulas: 99% versus 46%. The difference is nearly all file cache, memory the Mac is using well and would give up immediately. The test in `test/features.test.js` checks exactly this case, and that garbage input gives `null`:
 
 ```javascript
 assert.equal(parseVmStat(vm, total), 46); // (280000 - 10000 + 150000 + 60000) pages of 16 KB
 assert.equal(parseVmStat('garbage', total), null);
 ```
+
+On a real Mac it looks the same. A friend’s Mac that showed 99% on Pulse 0.2.1 shows **51%** on 0.2.2.
 
 ## How often to ask
 

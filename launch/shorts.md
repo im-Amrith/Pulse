@@ -85,7 +85,7 @@ Every caption ends with: **"Free and open source. Not affiliated with Anthropic.
 - **Hashtags:** #programming #electron #csharp #windows11 #performance #devtools
 
 ### 10. "Why your Mac says 99% RAM"
-- **Pair with:** text-on-screen explainer (99% → 46%) over black, end on 0:25–0:27
+- **Pair with:** text-on-screen explainer (99% → 51%, a real Mac before and after the fix) over black, end on 0:25–0:27
 - **Caption:** macOS fills spare memory with file cache, so "free memory" is almost always near zero. Activity Monitor counts App + Wired + Compressed instead. I learned this the hard way. Write-up on the blog. Link in bio.
 - **Hashtags:** #macos #programming #apple #developer #javascript #techtips
 

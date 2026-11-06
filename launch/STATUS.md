@@ -1,9 +1,9 @@
 # Launch status
 
 Where the Pulse launch stands: what's been done, what's waiting on you (Amrithesh), and what Claude does next.
-Last updated: 6 November 2026.
+Last updated: 6 November 2026 (evening).
 
-**Nothing has been posted or deployed yet.** #10, #13 and #16 are merged; the website (#11) and this launch kit (#12) are still open.
+**Nothing has been posted yet.** pulse-bot.dev is live with the 60 fps promo; the website PR (#11, star button and blog) and this launch kit (#12) are still open.
 
 > **Testing on a Mac:** Amrithesh works on Windows and has no Mac. Mac changes are reviewed from the code and the macOS CI job (`macos-15`), plus a friend's Mac when a real-device check is needed. Commands in this file are written for Windows.
 
@@ -32,11 +32,15 @@ Last updated: 6 November 2026.
 | --- | --- |
 | [#10](https://github.com/im-Amrith/Pulse/pull/10) open-source polish | **merged**; `windows.yml` run by hand on 6 Nov: success |
 | [#13](https://github.com/im-Amrith/Pulse/pull/13) by @Saikat556: "Notifications" label on macOS (closes #1) | **merged**, the first outside contribution |
-| [#16](https://github.com/im-Amrith/Pulse/pull/16) CI: `macos-14` → `macos-15` (GitHub retired the macos-14 image on 2 Nov) | **merged**; #11 and #12 have `main` merged in, so they use macos-15 too |
-| [#15](https://github.com/im-Amrith/Pulse/pull/15) by @laozhej: tests for `store.js` (closes #3) | open; its CI run needs **Approve and run workflows** |
-| [#14](https://github.com/im-Amrith/Pulse/pull/14) Dependabot: Electron 38 → 42 | open; needs a real review (CI skips the Electron binary) |
-| [#5](https://github.com/im-Amrith/Pulse/issues/5) keyboard-accessible Plan checkboxes | claimed by @laozhej, not assigned yet |
-| `loadToken()` keeps old file permissions when it replaces a bad `hook-token` | found while reviewing #15; see section 3 |
+| [#16](https://github.com/im-Amrith/Pulse/pull/16) CI: `macos-14` → `macos-15` (GitHub retired macos-14 on 2 Nov) | **merged** |
+| [#20](https://github.com/im-Amrith/Pulse/pull/20) Electron 38 → 42 | **merged**. Replaces Dependabot's #14 (closed). Dependabot alerts: 33 → **0**. CI now also starts the real app on Windows and macOS. Not in a release yet. |
+| 60 fps promo | **live** on pulse-bot.dev (new file names `…-60fps.mp4`, so caches can't serve the old 30 fps copies); `promo/final/` holds the 60 fps renders |
+| [#15](https://github.com/im-Amrith/Pulse/pull/15) by @laozhej: tests for `store.js` (closes #3) | open, reviewed: test files only. Needs a fresh CI run (see 2A) |
+| [#19](https://github.com/im-Amrith/Pulse/pull/19) by @laozhej: keyboard-accessible Plan checkboxes (closes #5) | open, reviewed: real buttons, focus kept after toggling. Needs CI |
+| [#18](https://github.com/im-Amrith/Pulse/pull/18) by @laozhej: Settings toggle to hide CPU/RAM (closes #2) | open, reviewed. Needs CI |
+| Blog post 3 (Mac RAM) | now uses a real reading: a friend's Mac showed **99% on 0.2.1 and 51% on 0.2.2**. The 99% → 46% table is labelled as the test's sample. |
+| Blog post dates | all **9 November 2026**, the day before launch |
+| `loadToken()` keeps old file permissions when it replaces a bad `hook-token` | found while reviewing #15; offered to @laozhej in the #15 reply (see section 3) |
 
 ### Phase 1: open-source polish ([#10](https://github.com/im-Amrith/Pulse/pull/10))
 - **README:**
@@ -109,46 +113,40 @@ Last updated: 6 November 2026.
 Do these in order. Tell Claude "done" (or paste the error) after each group.
 
 ### Already done
-- Labels `idea`, `mac` and `windows` created and applied (#1 `mac`; #2, #4, #8, #9 `idea`).
-- Discussions on, social preview uploaded, repo pinned, Dependabot alerts and security updates on.
+- Labels `idea`, `mac` and `windows` created and applied.
+- Discussions set up (welcome post, categories), social preview uploaded, repo pinned, Dependabot alerts and security updates on.
+- Cloudflare: API token, both GitHub secrets, Web Analytics, and a `www` → `pulse-bot.dev` redirect.
+- GitHub Sponsors profile live at https://github.com/sponsors/im-Amrith.
 - #10 merged and the Windows workflow tested.
 
-### A. Contributors
-1. On [#15](https://github.com/im-Amrith/Pulse/pull/15), choose **Approve and run workflows**. Merge when `test (windows-latest)`, `test (macos-15)` and `test (ubuntu-latest)` pass.
-2. Post the drafted replies on #15 and #5, then assign @laozhej to [#5](https://github.com/im-Amrith/Pulse/issues/5).
+### A. Merge the contributor PRs (in this order)
+1. **#15, #19, #18.** Each one first needs a CI run on the current workflows: their old runs were queued before #16, so they show a cancelled `test (macos-14)`. On each PR, click **Update branch** (near the bottom of the Conversation tab). That starts a new run with `test (macos-15)`; if GitHub asks, click **Approve and run workflows**. Merge when `test (windows-latest)`, `test (macos-15)` and `test (ubuntu-latest)` are green.
+2. After each merge, post the drafted reply. The drafts are in the chat with Claude; the #15 reply offers @laozhej the `loadToken()` fix.
+3. #19 fixes #5, so #5 doesn't need assigning.
 
 ### B. Protect `main`
-1. At https://github.com/im-Amrith/Pulse/settings/rules, choose **New ruleset → New branch ruleset**, and target the default branch.
-2. Turn on **Require status checks to pass**, and add `test (windows-latest)`, `test (macos-15)` and `test (ubuntu-latest)`.
-3. Turn on **Block force pushes** and **Restrict deletions**.
+1. At https://github.com/im-Amrith/Pulse/settings/rules, choose **New ruleset → New branch ruleset**. Name it `main`, set **Enforcement status** to **Active**.
+2. **Bypass list → Add bypass → Repository admin → Always allow**, so your own direct pushes still work.
+3. **Target branches → Add target → Include default branch.**
+4. Tick **Restrict deletions**, **Block force pushes** and **Require status checks to pass**, and add `test (windows-latest)`, `test (macos-15)` and `test (ubuntu-latest)`. Leave "Require branches to be up to date" off.
+5. **Create.**
 
-### C. Discussions
-Post the welcome post in **Announcements** and pin it. Keep Announcements, Q&A, Ideas and Show and tell; delete General and Polls.
+### C. Sponsors button on the repo
+Tell Claude to add `.github/FUNDING.yml` (`github: im-Amrith`), so the **Sponsor** button shows on the repo too.
 
-### D. GitHub Sponsors
-Sign up at https://github.com/sponsors. Tell Claude when you're approved; Claude then adds `.github/FUNDING.yml` (`github: im-Amrith`).
+### D. Merge #12 and #11
+1. **#12 (this launch kit):** after your rewrites in E. Merging only changes the repo.
+2. **#11 (website):** on **Mon 9 Nov**, the date on the blog posts. Merging deploys pulse-bot.dev automatically through `site.yml`. Then tell Claude, to check the live site.
 
-### E. Cloudflare (for automatic deploys and analytics)
-1. **API token** at https://dash.cloudflare.com/profile/api-tokens → **Create Custom Token**:
-   - name `pulse-github-deploy`
-   - permissions **Account → Cloudflare Pages → Edit** only
-   - account resources **Include → your account**
-   - no IP filtering, expiry 1 year
-   - copy the token. **Don't paste it into chat.**
-2. **Account ID:** at https://dash.cloudflare.com, open **Workers & Pages** and copy the **Account ID**.
-3. **GitHub secrets** at https://github.com/im-Amrith/Pulse/settings/secrets/actions: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
-4. **Web Analytics:** **Workers & Pages → pulse → Metrics → Web Analytics → Enable**. No token or code needed.
-5. **Tell Claude before merging #11.** Merging deploys the live site.
-
-### F. Edit the drafts before anything is posted
+### E. Edit the drafts before anything is posted
 1. **Subreddit rules:** Reddit was blocked from Claude's session, so no rules are quoted. For each subreddit, open its rules page and fill in the box under its draft in [posts.md](posts.md) (self-promo allowed, which days, flair, title format).
 2. **Show HN rules:** HN was blocked too. Read https://news.ycombinator.com/showhn.html and https://news.ycombinator.com/newsguidelines.html.
 3. **Rewrite the posts in your own words.** Communities notice copy-paste, and awesome-claude-code requires recommendations to be written by a person.
-4. **Post 3 (Mac RAM) needs a real measurement.** The "99% → 46%" table uses the made-up `vm_stat` sample from `test/features.test.js`, not a reading from a real Mac, but the post says "Same machine, same moment". Either ask your friend to run `vm_stat` and note Pulse's old and new figures on their Mac (and decide whether to credit them), or reword it as a worked example. This applies to the blog copy on #11 and `launch/devto/mac-99-percent-ram.md`.
+4. **Post 3 credit:** it says "a friend's Mac". Add their name or handle if they'd like the credit.
 5. **Check the claim in post 1** that you measured before/after totals rather than each change separately. Change it if you measured more.
-6. **Set the start date.** The plan assumes Day 1 is Tuesday 10 November 2026. If that changes, tell Claude and the calendar can be shifted.
+6. **Start date:** Day 1 is Tuesday 10 November 2026. If that changes, tell Claude: the calendar and the blog dates move together.
 
-### G. Posting (Phase 4, with Claude)
+### F. Posting (Phase 4, with Claude)
 Post each piece yourself, from your own accounts, in the order in [plan.md](plan.md). Paste each link back to Claude.
 
 | Day | Channel | Account |
@@ -166,7 +164,7 @@ Post each piece yourself, from your own accounts, in the order in [plan.md](plan
 
 Never ask for upvotes or stars, and space the subreddits at least a day apart.
 
-### H. Measure (daily, during the two weeks)
+### G. Measure (daily, during the two weeks)
 Run the `gh api` commands in [plan.md](plan.md#measuring) once a day and note the numbers; GitHub keeps traffic for 14 days only. Check Cloudflare Web Analytics for visits and referrers.
 
 ---
@@ -175,9 +173,9 @@ Run the `gh api` commands in [plan.md](plan.md#measuring) once a day and note th
 
 | When | What |
 | --- | --- |
-| After you confirm Sponsors (B) | Commit `.github/FUNDING.yml` (`github: im-Amrith`) on a branch and open a PR |
+| When you say so (C) | Add `.github/FUNDING.yml` (`github: im-Amrith`) on a branch and open a PR |
 | If @laozhej doesn't take the `loadToken()` fix | Fix it on a branch: `fs.chmodSync(file, 0o600)` after writing (`mode` only applies when Node creates the file), plus a test for replacing an existing bad token. No effect on Windows, which ignores POSIX modes. |
-| Before merging #14 | Review Electron 39–42 breaking changes against Pulse's code (transparent window, `beginFrameSubscription`, `globalShortcut`, preload/contextIsolation), and ask a friend with a Mac or run the Windows build to smoke-test |
+| Next release (0.3.0) | Electron 42 (#20) plus #18 and #19. Build both apps from the workflows, then a friend's Mac check: the island works, a reminder shows (as a notification or in the pill), RAM matches Activity Monitor. |
 | After you've edited the drafts | Fold your edits into `launch/` and the blog posts, re-check limits (titles, tweets), and push |
 | Before #11 is merged | Re-check the blog after your edits, and confirm with you that the secrets are set |
 | After #11 is merged | Check https://pulse-bot.dev shows the star button, the blog and the three posts, that the OG image appears, and that the Actions run deployed (or skipped cleanly) |
@@ -196,7 +194,8 @@ Claude won't post, merge to `main`, deploy, create releases or change settings w
 - **CDN check.** Claude's session couldn't reach jsDelivr or Google Fonts. The local test used the same pinned versions of three, GSAP and Lenis from npm, and local fonts. After deploying, open the live site once on desktop and phone.
 - **Release builds wording.** The README says release zips are built on GitHub Actions, and that the 0.2.2 Windows zip was built on your PC. From the next release on, publish the zip from the workflow artifact, so that statement stays true.
 - **awesome-claude-code eligibility:** the repo must be 14 days old, so **18 November 2026** or later, or have 100+ stars.
-- **Blog post dates** are all 5 November 2026. If you publish later, change `pulse:date` and the visible date in each post, then run `npm run blog`.
+- **Blog post dates** are all 9 November 2026. If #11 is merged on another day, change `pulse:date` and the visible date in each post, then run `npm run blog`.
+- **Changing site media:** assets are cached for 30 days as immutable. A replaced video or image needs a new file name, or visitors keep the old one.
 
 ---
 
@@ -206,5 +205,5 @@ Written up with costs in [plan.md → Later](plan.md#later-not-now). Not started
 1. **Code signing:** Azure Trusted Signing (~$10/month) for Windows, and the Apple Developer Program ($99/year) for notarization. About $220/year for both. Both build scripts already support signing once the secrets exist.
 2. **After signing:** post to r/macapps and launch on Product Hunt (drafts in [posts.md](posts.md)).
 3. **Linux build investigation** ([#9](https://github.com/im-Amrith/Pulse/issues/9)).
-4. **Sponsors tiers:** a $3 Supporter, a $10 Backer, and a one-time "signing fund". No features locked behind sponsorship.
+4. **Sponsors:** profile live. Tiers: see the chat (no features locked behind sponsorship).
 5. **A possible "Pulse Pro"** (~$5–9 one-time) for extras only. The core stays free and MIT. Decide after the launch numbers are in.
