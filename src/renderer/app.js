@@ -994,7 +994,7 @@ function renderSettings() {
     pref('autoOpen', 'Open when Claude needs you', 'Unfolds for permission requests and questions.'),
     pref('sound', 'Sounds', 'A soft chime when Claude finishes or needs you.'),
     pref('lyrics', 'Lyrics', 'Shows synced lyrics while music plays. Songs are looked up on lrclib.net.'),
-    pref('notifications', 'Windows notifications', 'Only while Pulse is not in focus.'),
+    pref('notifications', IS_MAC ? 'Notifications' : 'Windows notifications', 'Only while Pulse is not in focus.'),
     pref('watchDownloads', 'Watch Downloads', 'Finished downloads go to the Tray and flash in the island.'),
     row('Shortcut', `${IS_MAC ? '⌘⌥P' : 'Ctrl+Alt+P'} unfolds Pulse and Esc folds it in.`, null),
     versionRow(row),

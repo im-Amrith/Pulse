@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="promo/final/pulse-promo-poster.jpg" alt="Pulse: a small island at the top of a laptop screen, unfolded into a panel" width="820">
-</p>
-
 <h1 align="center">Pulse</h1>
 
 <p align="center">
@@ -10,23 +6,41 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/im-Amrith/Pulse-releases/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/im-Amrith/Pulse-releases?label=release&color=d28a0f"></a>
+  <a href="LICENSE.txt"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-d28a0f"></a>
+  <a href="https://github.com/im-Amrith/Pulse/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/im-Amrith/Pulse/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Windows and macOS" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-black">
+  <a href="https://github.com/im-Amrith/Pulse/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/im-Amrith/Pulse?style=flat&color=black"></a>
+</p>
+
+<p align="center">
+  <a href="https://pulse-bot.dev">
+    <picture>
+      <source media="(prefers-reduced-motion: reduce)" srcset="promo/final/pulse-promo-poster.jpg">
+      <img src=".github/media/pulse-demo.gif" alt="Pulse follows Claude Code live on a laptop screen, asks to allow a command, and smiles when the job is done" width="820">
+    </picture>
+  </a>
+  <br>
+  <sub>9 seconds from the <a href=".github/media/pulse-demo.mp4">promo film</a> (<a href="promo/final/pulse-promo-poster.jpg">still image</a>). All content shown is made up for the demo.</sub>
+</p>
+
+<p align="center">
   <a href="https://pulse-bot.dev">Website</a> ·
   <a href="https://github.com/im-Amrith/Pulse-releases/releases/latest">Download</a> ·
   <a href="#build-it-yourself">Build it yourself</a> ·
+  <a href="#faq">FAQ</a> ·
   <a href="CONTRIBUTING.md">Contribute</a>
 </p>
 
 <p align="center">
-  <img alt="Windows and macOS" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-black">
-  <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-d28a0f">
-  <img alt="Electron 38" src="https://img.shields.io/badge/electron-38-black">
+  If Pulse saves you a trip to the terminal, a ⭐ <a href="https://github.com/im-Amrith/Pulse">star</a> helps others find it.
 </p>
 
 ---
 
 A black capsule hangs from the top centre of your screen with two eyes. They blink, glance at your cursor, scan while Claude works, hop when it needs you, smile when the job is done and droop when it fails. Hover over it (or press `Ctrl+Alt+P`, `Cmd+Alt+P` on a Mac) and it unfolds into a panel.
 
-Free, no account, and nothing leaves your computer.
+Free and open source (MIT), no account, and nothing leaves your computer.
 
 ## What it does
 
@@ -89,7 +103,9 @@ npm start
 
 **Optional on Windows:** `npm run helper` compiles the native media helper (`src/native/PulseMedia.cs`) with the C# compiler that ships with Windows; it needs the Windows 10/11 SDK. The helper uses about 20 MB of memory. Without it, Pulse falls back to a PowerShell bridge that uses about 90 MB.
 
-**Release builds:** `npm run release` builds the Windows zip. The Mac build runs on GitHub Actions (`.github/workflows/mac.yml`) when a `v*` tag is pushed.
+**Release builds:** `npm run release` builds the Windows zip on a Windows PC.
+
+Release zips are built on GitHub's machines, not on my computer. Pushing a `v*` tag runs [`windows.yml`](.github/workflows/windows.yml) (Windows zip) and [`mac.yml`](.github/workflows/mac.yml) (Mac `.dmg`) on GitHub Actions. Each run runs the tests, starts the built app once as a smoke test, and uploads the file with its `.sha256`. I check the build, then publish it to [Pulse-releases](https://github.com/im-Amrith/Pulse-releases/releases) by hand. You can compare a release's SHA-256 with the one in the workflow run that built it. (Up to 0.2.2 the Windows zip was built on my PC; the Windows workflow is used from the next release on.)
 
 ## How it works
 
@@ -116,9 +132,34 @@ Claude Code ──hooks (HTTP + token)──▶ hub.js ──IPC──▶ render
 | `website/` | [pulse-bot.dev](https://pulse-bot.dev); `npm run deploy` publishes it to Cloudflare Pages |
 | `promo/` | The promo video, made with [HyperFrames](https://github.com/heygen-com/hyperframes) from real footage (`npm run film -- --promo`) |
 
+## FAQ
+
+**Is it safe?**
+Pulse only listens on `127.0.0.1` (your own computer), and every request must carry a random token made when Pulse is installed, so other programs and websites can't answer a permission request for you. It never runs a tool by itself: it passes your Allow or Deny back to Claude Code, and if you don't answer within 5 minutes the request goes back to the terminal. It has no account, no analytics and no server of its own (see [Privacy](#privacy)). It's a small codebase, so you can read it: start with `src/main/hub.js` and `src/main/claude-config.js`. Found a problem? See [SECURITY.md](SECURITY.md).
+
+**What does Connect change?**
+Only `~/.claude/settings.json`, and a backup goes next to it as `settings.json.pulse-backup` first. Connect adds:
+- an HTTP hook for each Claude Code event Pulse shows (`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `Notification`, `Stop`, `StopFailure`, `SessionEnd`), all pointing at `http://127.0.0.1:47900/pulse/hook` with your token in an `X-Pulse-Token` header
+- one background `Stop` command hook (`pulse-reply.js`) so you can reply to Claude from the island
+- a status line (`pulse-status.js`), only if you don't already have one
+
+Disconnect removes exactly those entries and leaves your own hooks and status line alone. The model picker in the island writes the `model` setting in the same file.
+
+**Why Electron?**
+The island is a transparent, always-on-top window with animation, blur and a lot of small UI, and Electron let one person ship it on Windows and macOS from one plain-JavaScript codebase with no build step. The cost is memory: about 315 MB right after launch on Windows. 0.2.1 cut that from about 530 MB, mostly by replacing a PowerShell media bridge with a 12 KB native helper. If you can make it lighter, a PR is very welcome.
+
+**Why aren't the builds signed?**
+Code signing costs money every year (a Windows signing service and the Apple Developer Program), and Pulse is free. So Windows SmartScreen warns the first time, and macOS needs **Open Anyway**. Signing is planned. Until then, the builds are made on GitHub's machines (see [Build it yourself](#build-it-yourself)), each release lists its SHA-256, and you can always build Pulse from source yourself.
+
+**Does it run on Linux?**
+Not yet, and nobody has tried it on a Linux desktop. Most of Pulse is plain Node and Electron, but the media bridge, Wi-Fi status, a transparent always-on-top window that behaves across desktop environments, and packaging all need work. If you'd like to help, see [Investigate Linux support](https://github.com/im-Amrith/Pulse/issues/9).
+
+**Is this an official Anthropic app?**
+No. Pulse is an independent project for Claude Code. It isn't affiliated with or endorsed by Anthropic.
+
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). To report a security problem, see [SECURITY.md](SECURITY.md).
+Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md), and look for issues labelled [`good first issue`](https://github.com/im-Amrith/Pulse/labels/good%20first%20issue) if you'd like somewhere to start. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md). To report a security problem, see [SECURITY.md](SECURITY.md). Changes between versions are in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
