@@ -17,8 +17,6 @@ jobs:
         os: [windows-latest, macos-15, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
-    env:
-      ELECTRON_SKIP_BINARY_DOWNLOAD: '1' # the tests run in Node; no need for the Electron binary
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,3 +28,12 @@ jobs:
       - name: Native media helper compiles
         if: runner.os == 'Windows'
         run: npm run helper
+      - name: The app starts (window and hook server)
+        if: runner.os != 'Linux'
+        shell: bash
+        env:
+          PULSE_SMOKE_TEST: '1'
+        run: |
+          npx install-electron
+          npx electron . | tee smoke.log
+          grep -q PULSE_SMOKE smoke.log

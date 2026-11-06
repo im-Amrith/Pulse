@@ -33,6 +33,11 @@ async function main() {
   fs.mkdirSync(OUT, { recursive: true });
 
   step('Copying the Electron runtime');
+  // Since Electron 42, `npm install` no longer downloads Electron itself; install-electron fetches it
+  // (checksum-verified) into node_modules/electron/dist, or does nothing if it's already there.
+  execFileSync(process.execPath, [path.join(ROOT, 'node_modules', 'electron', 'install.js')], { cwd: ROOT, stdio: 'inherit' });
+  const electronVersion = fs.readFileSync(path.join(ROOT, 'node_modules', 'electron', 'dist', 'version'), 'utf8').trim();
+  if (electronVersion !== require('electron/package.json').version) throw new Error(`node_modules/electron/dist is ${electronVersion}, expected ${require('electron/package.json').version}`);
   fs.cpSync(path.join(ROOT, 'node_modules', 'electron', 'dist'), DIST, { recursive: true });
   fs.renameSync(path.join(DIST, 'electron.exe'), path.join(DIST, 'Pulse.exe'));
   fs.rmSync(path.join(DIST, 'resources', 'default_app.asar'), { force: true });
