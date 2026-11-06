@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Why your Mac says 99% RAM (and how Activity Monitor really counts it) · Pulse blog</title>
 <meta name="description" content="os.freemem() on macOS leaves out file cache, so a healthy Mac looks full. Here’s how Activity Monitor counts Memory Used, and how to get the same number from vm_stat.">
-<meta name="pulse:date" content="2026-11-05">
+<meta name="pulse:date" content="2026-11-09">
 <link rel="canonical" href="https://pulse-bot.dev/blog/mac-99-percent-ram/">
 <link rel="alternate" type="application/rss+xml" title="Pulse blog" href="https://pulse-bot.dev/blog/feed.xml">
 <meta property="og:type" content="article">
@@ -16,7 +16,7 @@
 <meta property="og:image" content="https://pulse-bot.dev/assets/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="article:published_time" content="2026-11-05">
+<meta property="article:published_time" content="2026-11-09">
 <meta property="article:author" content="Amrithesh S Menon">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#090b16">
@@ -45,7 +45,7 @@
     <a class="kicker" href="/blog/" style="text-decoration:none">← Blog</a>
     <h1>Why your Mac says 99% RAM.</h1>
     <p class="lede">Pulse 0.2.2 fixed a RAM readout that showed about 99% on every Mac. The Mac was fine; the maths was wrong. Here’s how Activity Monitor really counts memory, and how to read the same number from vm_stat.</p>
-    <div class="meta"><span>Amrithesh S Menon</span><time datetime="2026-11-05">5 November 2026</time><span>5 min read</span></div>
+    <div class="meta"><span>Amrithesh S Menon</span><time datetime="2026-11-09">9 November 2026</time><span>5 min read</span></div>
     <article class="post">
       <p>Pulse’s panel has a small <code>CPU 11%  RAM 41%</code> readout in its header. Soon after the Mac version came out, the RAM figure on Macs showed about <strong>99%</strong>, all the time, on machines with plenty of memory to spare. The Mac was fine. My maths was wrong. Version 0.2.2 fixed it, and the fix is a nice small lesson in how macOS uses memory.</p>
 
@@ -129,9 +129,11 @@ Pages occupied by compressor:             60000.</code></pre>
           <tr><td>Cached files (left out)</td><td>330,000</td><td>≈ 5.0 GB</td><td>n/a</td></tr>
         </tbody>
       </table>
-      <p>Same machine, same moment: 99% versus 46%. The difference is nearly all file cache, memory the Mac is using well and would give up immediately. The test in <code>test/features.test.js</code> checks exactly this case, and that garbage input gives <code>null</code>:</p>
+      <p>Same sample, two formulas: 99% versus 46%. The difference is nearly all file cache, memory the Mac is using well and would give up immediately. The test in <code>test/features.test.js</code> checks exactly this case, and that garbage input gives <code>null</code>:</p>
 <pre><code>assert.equal(parseVmStat(vm, total), 46); // (280000 - 10000 + 150000 + 60000) pages of 16 KB
 assert.equal(parseVmStat('garbage', total), null);</code></pre>
+
+      <p>On a real Mac it looks the same. A friend’s Mac that showed 99% on Pulse 0.2.1 shows <strong>51%</strong> on 0.2.2.</p>
 
       <h2>How often to ask</h2>
       <p>Pulse samples CPU every 2 seconds, from <code>os.cpus()</code>, which is cheap. Running <code>vm_stat</code> means starting a process, so Pulse does it every third tick, every 6 seconds, with a 3-second timeout. That’s plenty for a percentage in a header:</p>
