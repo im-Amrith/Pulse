@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+- Plan note and reminder checkboxes now support Tab, Space and Enter, announce their item, and keep keyboard focus after toggling.
+
 ### Added
 - A Settings toggle to hide CPU and memory use in the panel header. It is on by default.
 - Windows release zips are built on GitHub Actions (`.github/workflows/windows.yml`) when a `v*` tag is pushed, like the Mac build. Releases are still checked and published by hand.

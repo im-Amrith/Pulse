@@ -868,7 +868,8 @@ function renderNote(box) {
     if (!m) { view.append(h('div', { class: 'note-line' }, h('span', { text: line || ' ' }))); return; }
     const done = m[1] !== ' ';
     view.append(h('div', { class: `note-line ${done ? 'done' : ''}` },
-      h('span', { class: `circle ${done ? 'done' : ''}`, role: 'checkbox', 'aria-checked': String(done), onclick: e => {
+      h('button', { type: 'button', class: `circle ${done ? 'done' : ''}`, role: 'checkbox', 'aria-checked': String(done),
+        'aria-label': `Mark "${m[2] || 'note item'}" as ${done ? 'not done' : 'done'}`, 'data-key': `note-check:${i}`, onclick: e => {
         e.stopPropagation();
         const lines = text.split('\n'); lines[i] = line.replace(/\[( |x|X)\]/, done ? '[ ]' : '[x]');
         saveNote(lines.join('\n')); render();
@@ -915,7 +916,8 @@ function renderReminders(box) {
     h('div', { class: 'rem-form' }, draftInput(textKey, { placeholder: 'Remind me to…', 'aria-label': 'Reminder', onkeydown: e => { if (e.key === 'Enter') whenInput.focus(); } }),
       h('div', { class: 'row' }, whenInput, h('button', { class: 'round', title: 'Add reminder', onclick: add }, icon('plus', 15))), preview),
     h('div', { class: 'rems' }, shown.length ? shown.map(r => h('div', { class: `rem ${r.done ? 'done' : r.fired ? 'due' : ''}` },
-      h('span', { class: `circle ${r.done ? 'done' : ''}`, role: 'checkbox', 'aria-checked': String(r.done), title: r.done ? 'Mark as not done' : 'Mark as done',
+      h('button', { type: 'button', class: `circle ${r.done ? 'done' : ''}`, role: 'checkbox', 'aria-checked': String(r.done), title: r.done ? 'Mark as not done' : 'Mark as done',
+        'aria-label': `Mark "${r.text}" as ${r.done ? 'not done' : 'done'}`, 'data-key': `reminder-check:${r.id}`,
         onclick: () => saveReminders(reminders().map(x => (x.id === r.id ? { ...x, done: !x.done } : x))) }, r.done ? icon('check', 11) : null),
       h('span', { class: 'grow ellipsis', text: r.text }),
       h('time', { text: r.done ? 'done' : whenLabel(r.at) }),
