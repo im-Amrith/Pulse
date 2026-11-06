@@ -208,6 +208,7 @@ let downloadNotice = null;
 pulse.onDownload(name => { downloadNotice = { name, at: Date.now() }; render(); setTimeout(render, 6100); });
 pulse.onStats(s => {
   const el = $('#stats');
+  if (S?.prefs.showStats === false) return;
   if (el && s.cpu != null) el.replaceChildren('CPU ', h('b', { text: `${s.cpu}%` }), '  RAM ', h('b', { text: `${s.ram}%` }));
 });
 
@@ -402,6 +403,7 @@ function renderRail() {
 }
 function renderHeader() {
   $('#title').textContent = pageOf(current).label;
+  $('#stats').hidden = S.prefs.showStats === false;
   tickClock(); tickUsage();
   const mb = $('#menu-btn'); mb.replaceChildren(icon('dots', 18));
   if (!S.claude.connected) mb.append(h('i', { class: 'dot', title: 'Claude Code is not connected' }));
@@ -991,6 +993,7 @@ function renderSettings() {
     row('Claude Code', S.claude.connected ? (S.claude.statusLine === 'custom' ? 'Connected. Your own status line is kept, so usage limits are not shown.' : 'Connected through hooks and a status line in settings.json.') : 'Not connected.',
       S.claude.connected ? h('button', { class: 'btn no', text: 'Disconnect', onclick: () => act(() => pulse.disconnect()) }) : h('button', { class: 'btn primary', text: 'Connect', onclick: () => act(() => pulse.connect()) })),
     row(IS_MAC ? 'Open at login' : 'Start with Windows', null, toggle(S.startWithWindows, () => act(() => pulse.setLogin(!S.startWithWindows)), IS_MAC ? 'Open at login' : 'Start with Windows')),
+    pref('showStats', 'CPU and memory', 'Show processor and memory use in the header.'),
     pref('autoOpen', 'Open when Claude needs you', 'Unfolds for permission requests and questions.'),
     pref('sound', 'Sounds', 'A soft chime when Claude finishes or needs you.'),
     pref('lyrics', 'Lyrics', 'Shows synced lyrics while music plays. Songs are looked up on lrclib.net.'),
