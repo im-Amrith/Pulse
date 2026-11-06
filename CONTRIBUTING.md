@@ -17,7 +17,7 @@ Please remove anything personal from screenshots (file paths, song titles, promp
 
 ## Running from source
 
-You need [Node.js](https://nodejs.org) **22** LTS. On Node 26, Electron's installer currently stops without unpacking Electron, so `npm start` can't find it.
+You need [Node.js](https://nodejs.org) **22** or newer. Electron itself downloads the first time you run `npm start` (or run `npx install-electron`).
 
 ```bash
 npm ci

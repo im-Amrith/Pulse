@@ -90,7 +90,7 @@ That's the full list, and the code is here to check.
 
 ## Build it yourself
 
-You need [Node.js](https://nodejs.org) 22 LTS. On Node 26, Electron's installer currently stops without unpacking Electron, so `npm start` can't find it.
+You need [Node.js](https://nodejs.org) 22 or newer. Electron itself downloads the first time you run `npm start`.
 
 ```bash
 git clone https://github.com/im-Amrith/Pulse.git
